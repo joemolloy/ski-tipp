@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% load tz %}
+
+{% block page_content %}
+
+<h1>{{ object.location }} 
+{% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
+{% endif %} 
+</h1>
+<p>{{ object.discipline }}</p>
+<p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
+
+<p>FIS ID: {{ object.fis_id }}</p>
+<p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
+{% if object.cancelled %} <p>Cancelled</p> {% endif %}
+
+<div>
+{% if not object.cancelled and not object.finished %}
+<a href="{{object.tipp_link}}"> <button>Submit New Tipp</button></a>
+{% endif %}
+</div>
+
+<div>
+    {% if current_tipp %}
+        <div> {{ current_tipp.place_1 }} </div>
+        <div> {{ current_tipp.place_2}} </div>
+        <div> {{ current_tipp.place_3 }} </div>
+        </div> {{ current_tipp.dnf }} </div>
+    {% else %}
+    No tip made yet!
+    {% endif %}
+</div>
+
+{% if True or object.cancelled or object.finished %}
+    {% for tipp in object.get_last_tipps %}
+        {% if tipp.tipper != request.user %}
+            <div>
+                    <div> {{ tipp.tipper.username }} </div>
+                    <div> {{ tipp.place_1 }} </div>
+                    <div> {{ tipp.place_2}} </div>
+                    <div> {{ tipp.place_3 }} </div>
+                    </div> {{ tipp.dnf }} </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% else %}
+Tips not yet published
+{% endif %}
+
+{% endblock %}

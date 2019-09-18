@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<h1>Races</h1>
+{% for race_event in object_list %}
+    <a href="{{ race_event.get_absolute_url }}">
+    <div class="race_row {{ race_event.status }}">
+            {{ race_event.location }} - {{ race_event.kind }} | {{ race_event.race_date|date }} 
+    </div>
+    </a>
+{% empty %}
+    <div>No races yet.</div>
+{% endfor %}
+
+{% endblock %}

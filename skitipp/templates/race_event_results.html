@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% load tz %}
+
+{% block page_content %}
+
+<h1>{{ object.location }} 
+{% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
+{% endif %} 
+</h1>
+<p>{{ object.discipline }}</p>
+<p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
+
+<p>FIS ID: {{ object.fis_id }}</p>
+<p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
+{% if object.cancelled %} <p>Cancelled</p> {% endif %}
+
+{% if object.finished %}
+
+    <h3>Podium</h3>
+    {% for r in object.podium %}
+    <div> {{ r.racer.name }} </div>
+    {% endfor %}
+
+    {% if object.alle_im_ziel %}
+        <h3>Alle im Ziel<h3>
+    {% else %}
+        <h3>dnf</h3>
+        {% for r in object.dnfs %}
+        <div> {{ r.racer.name }} </div>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    <h3> Results not yet published </h3>
+{% endif %}
+
+{% endblock %}
