@@ -2,50 +2,125 @@
 
 {% block page_content %}
 
-{% include "includes/race_info_panel.html" %}    
-
-
-<div class="tipp_list">
-
-    {% if not object.cancelled and not object.finished %}
-    <a href="{{object.tipp_link}}" class="btn btn-secondary">Submit New Tipp</a>
-    {% endif %}
-
-    <div class="tipp mytipp rd-flex flex-row">
-        {% if current_tipp %}
-            <div>
-                <div class="place1"> {{ current_tipp.place_1 }} </div>
-                <div class="place2"> {{ current_tipp.place_2}} </div>
-                <div class="place3"> {{ current_tipp.place_3 }} </div>
-                <hr>
-                <div class="dnf"> {{ current_tipp.dnf }} </div>
-            </div>
-        {% else %}
-        No tip made yet!
+<div class="row row-padding">
+    <div class="col-auto">
+        {% include "includes/race_info_panel.html" %}
+    </div>
+</div>
+<hr>
+<div class="row create_tipp row-padding">
+    <div class="col">
+        {% if not object.cancelled and not object.finished %}
+        <a href="{{object.tipp_link}}" class="btn btn-secondary">New Tipp</a>
         {% endif %}
     </div>
-    <hr>
-    {% if object.cancelled or object.finished %}
-        {% for tipp in object.get_last_tipps %}
-            {% if tipp.tipper != request.user %}
-                <div class="tipp rd-flex flex-row">
-                    <div>
-                        <div class="tipper"> {{ tipp.tipper.username }} </div>
-                        <div class="place1"> {{ tipp.place_1 }} </div>
-                        <div class="place2"> {{ tipp.place_2}} </div>
-                        <div class="place3"> {{ tipp.place_3 }} </div>
-                        <div class="dnf"> {{ tipp.dnf }} </div>
-                    </div>
-                </div>
-            {% endif %}
-        {% endfor %}
-    {% else %}
-    <div class="tipp rd-flex flex-row">
-        Tips not yet published
-    </div>
-    {% endif %}
 </div>
 
+<div class="row tipp_list">
+    <div class="col">
 
+        <div class="tipp mytipp rd-flex flex-row">
+            {% if current_tipp %}
+                <div>
+                    <div class="place1"> {{ current_tipp.place_1 }} </div>
+                    <div class="place2"> {{ current_tipp.place_2}} </div>
+                    <div class="place3"> {{ current_tipp.place_3 }} </div>
+                    <hr>
+                    <div class="dnf"> {{ current_tipp.dnf }} </div>
+                </div>
+            {% else %}
+            No tip made yet!
+            {% endif %}
+        </div>
+    </div>
+</div>
+<hr>
+<div class="row view_toggle">
+    <div class="col-6">
+        <button id="tipps_btn" type="button" class="btn btn-lg btn-block btn-secondary">Tipps</button>
+    </div>
+    <div class="col-6">
+        <button id="results_btn"  type="button" class="btn btn-lg btn-block btn-outline-secondary">Race Results</button>
+    </div>
+</div>
+<div class="container tipp_result_accordian">
+<div class="row tipp_list">
+    <div class="col">
+        {% if object.finished %}
+        <div id="tipps_panel" class="collapse show">
+            {% for tipp in object.get_last_tipps %}
+                {% if tipp.tipper != request.user %}
+                    <div class="tipp rd-flex flex-row">
+                        <div>
+                            <div class="tipper"> {{ tipp.tipper.username }} </div>
+                            <div class="place1"> {{ tipp.place_1 }} </div>
+                            <div class="place2"> {{ tipp.place_2}} </div>
+                            <div class="place3"> {{ tipp.place_3 }} </div>
+                            <div class="dnf"> {{ tipp.dnf }} </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% empty%}
+                <div class="tipp rd-flex flex-row">
+                    No other tipps submitted
+                </div>
+
+            {% endfor %}
+        </div>
+        <div id="results_panel" class="collapse">
+            <div class="podium">
+                    <h3>Podium</h3>
+                    {% for r in object.podium %}
+                    <div> {{ forloop.counter }}. {{ r.racer.name }} </div>
+                    {% endfor %}
+                </div>
+
+                <div class="dnf_list">
+                    {% if object.alle_im_ziel %}
+                        <h3>Alle im Ziel<h3>
+                    {% else %}
+                        <h3>dnf</h3>
+                        {% for r in object.dnfs %}
+                        <div> {{ r.racer.name }} </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+        {% else %}
+        <div class="tipp rd-flex flex-row">
+            Race still open!
+        </div>
+        {% endif %}
+    </div>
+</div>
+</div>
 
 {% endblock %}
+
+{% block javascript %}
+<script>
+    $("#tipps_btn").on("click", function(){
+        $("#tipps_btn").addClass('btn-secondary')
+        $("#tipps_btn").removeClass('btn-outline-secondary')
+        $("#results_btn").addClass('btn-outline-secondary')
+        $("#results_btn").removeClass('btn-secondary')
+
+        $("#tipps_panel").collapse('show');
+        $("#results_panel").collapse('hide');
+    })
+    $("#results_btn").on("click", function(){
+        $("#tipps_btn").addClass('btn-outline-secondary')
+        $("#tipps_btn").removeClass('btn-secondary')
+        $("#results_btn").addClass('btn-secondary')
+        $("#results_btn").removeClass('btn-outline-secondary')
+
+        $("#tipps_panel").collapse('hide');
+        $("#results_panel").collapse('show');
+    })
+    $( document ).ready( function( $ ) {
+        $("#tipps_btn").click()
+    });
+</script>
+
+{% endblock%}

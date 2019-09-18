@@ -1,9 +1,6 @@
-.races_list  {
-    padding: 20px;
-}
+
 
 .races_list .race_row {
-    width: 600px;
     border: 1px solid  #cccccc;
     border-radius: 10px;
     padding: 10px;
@@ -26,17 +23,8 @@ div.race_card_col {
     flex-direction: column;
 }
 
-.race_details {
-    padding: 20px;
-}
-
-.tipp_list {
-    padding: 20px;
-}
-
 .tipp {
     margin-top: 5px;
-    width: 400px;
     border: 1px solid  #cccccc;
     border-radius: 10px;
     padding: 10px;
@@ -63,5 +51,10 @@ div.dnf::before {
   }
 
 #leaderboard {
-    width: 600px;
+    width: 100%;
+}
+
+.tipp_result_accordian {
+    padding-top:10px;
+    padding-bottom:30px;
 }

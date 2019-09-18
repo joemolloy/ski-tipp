@@ -14,9 +14,9 @@
 
     {% if user.is_staff %} 
         <div class="btn-group" role="group">
-            <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit race details</a>
-            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Refresh from FIS</a>
-            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Close and Process Tips</a> 
+            <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit</a>
+            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Update from FIS</a>
+            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Finalize</a> 
         </div>
     {% endif %}
 
