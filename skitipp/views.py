@@ -30,6 +30,11 @@ class RaceListView(LoginRequiredMixin, ListView):
     template_name = 'race_list.html'
     model = RaceEvent
 
+    def get_context_data(self, **kwargs):
+        context = super(RaceListView, self).get_context_data(**kwargs)
+        context['race_list'] = 'active'
+        return context
+
 class RaceEventCreateView(LoginRequiredMixin, CreateView):
     template_name = 'race_event_form.html'
     form_class = RaceEventForm

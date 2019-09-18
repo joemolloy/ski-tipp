@@ -1,0 +1,14 @@
+{% load tz %}
+
+<div class="race_details">
+    <h1>{{ object.location }} 
+    {% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
+    {% endif %} 
+    </h1>
+    <p>{{ object.discipline }}</p>
+    <p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
+
+    <p>FIS ID: {{ object.fis_id }}</p>
+    <p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
+    {% if object.cancelled %} <p>Cancelled</p> {% endif %}
+</div>

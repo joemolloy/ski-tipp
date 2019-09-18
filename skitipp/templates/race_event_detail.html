@@ -1,19 +1,8 @@
 {% extends "base.html" %}
 
-{% load tz %}
-
 {% block page_content %}
 
-<h1>{{ object.location }} 
-{% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
-{% endif %} 
-</h1>
-<p>{{ object.discipline }}</p>
-<p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
-
-<p>FIS ID: {{ object.fis_id }}</p>
-<p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
-{% if object.cancelled %} <p>Cancelled</p> {% endif %}
+{% include "includes/race_info_panel.html" %}    
 
 <div>
 {% if not object.cancelled and not object.finished %}
@@ -21,12 +10,12 @@
 {% endif %}
 </div>
 
-<div>
+<div class="tipp mytipp">
     {% if current_tipp %}
-        <div> {{ current_tipp.place_1 }} </div>
-        <div> {{ current_tipp.place_2}} </div>
-        <div> {{ current_tipp.place_3 }} </div>
-        </div> {{ current_tipp.dnf }} </div>
+        <div class="place1"> {{ current_tipp.place_1 }} </div>
+        <div class="place2"> {{ current_tipp.place_2}} </div>
+        <div class="place3"> {{ current_tipp.place_3 }} </div>
+        <div class="dnf"> {{ current_tipp.dnf }} </div>
     {% else %}
     No tip made yet!
     {% endif %}
@@ -35,12 +24,12 @@
 {% if True or object.cancelled or object.finished %}
     {% for tipp in object.get_last_tipps %}
         {% if tipp.tipper != request.user %}
-            <div>
-                    <div> {{ tipp.tipper.username }} </div>
-                    <div> {{ tipp.place_1 }} </div>
-                    <div> {{ tipp.place_2}} </div>
-                    <div> {{ tipp.place_3 }} </div>
-                    </div> {{ tipp.dnf }} </div>
+            <div class="tipp">
+                    <div class="tipper"> {{ tipp.tipper.username }} </div>
+                    <div class="place1"> {{ tipp.place_1 }} </div>
+                    <div class="place2"> {{ tipp.place_2}} </div>
+                    <div class="place3"> {{ tipp.place_3 }} </div>
+                    <div class="dnf"> {{ tipp.dnf }} </div>
             </div>
         {% endif %}
     {% endfor %}

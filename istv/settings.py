@@ -31,7 +31,7 @@ ALLOWED_HOSTS = []
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
-
+LOGOUT_REDIRECT_URL = '/user/login'
 
 # Application definition
 
