@@ -61,3 +61,7 @@ div.place3::before {
 div.dnf::before {
     content: "dnf: ";
   }
+
+#leaderboard {
+    width: 600px;
+}

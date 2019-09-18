@@ -36,6 +36,8 @@ class RaceEvent(models.Model):
     finished = models.BooleanField(default=False)
     points_multiplier = models.IntegerField(default=1)
 
+    short_name = models.CharField(max_length=10)
+
     def get_absolute_url(self):
         return reverse('race_detail', kwargs={'pk': self.pk})
 
@@ -116,3 +118,12 @@ class Tipp(models.Model):
     @property
     def alle_im_ziel(self):
         return self.dnf_id == 0
+
+class TippPointTally(models.Model):
+    tipper = models.ForeignKey('auth.User', related_name='points_tally', on_delete=models.CASCADE)
+    race_event = models.ForeignKey('RaceEvent', related_name='points_tally', on_delete=models.CASCADE)
+    tipp = models.OneToOneField('Tipp', related_name='points_tally', on_delete=models.CASCADE)
+
+    total_points = models.FloatField(null=False)
+
+

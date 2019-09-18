@@ -14,6 +14,11 @@ urlpatterns = [
     path('race/create/', views.upload_race, name='upload_race'),
     path('race/<int:race_id>/update/', views.update_race, name='update_race'),
 
+    path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
+
+    path('leaderboard', views.LeaderboardView.as_view(), name='leaderboard'),
+    path('data/leaderboard', views.leaderboardDataView, name='leaderboard_data'),
+
     path(
         r'racer-autocomplete/',
         views.RacerAutocomplete.as_view(),

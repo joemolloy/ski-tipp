@@ -11,7 +11,7 @@ class RaceEventForm(forms.ModelForm):
     class Meta:
         model = RaceEvent
 
-        fields = ['finished','points_multiplier']
+        fields = ['finished','points_multiplier', 'short_name']
 
 class TippForm(forms.ModelForm):
     class Meta:

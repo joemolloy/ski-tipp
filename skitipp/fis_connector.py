@@ -6,6 +6,23 @@ import dateutil.parser as dp
 
 from skitipp.models import RaceEvent, Racer, RaceCompetitor
 
+def create_short_name(race_name, race_gender_kind):
+    abrv_name = race_name[:4]
+
+    race_kind = race_gender_kind[6:]
+
+    race_kind_mapping = {
+        "Slalom" : "SL",
+        "Giant Slalom" : "GS",
+        "Downhill" : "DH",
+        "Super G": "SG",
+        "Alpine Combined" : "AC",
+        "City Event" : "CE",
+    }
+    abrv_kind = race_kind_mapping.get(race_kind, "??")
+
+    return abrv_name + "_" + abrv_kind
+
 def extract_race_info(tree, fis_race_id):
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
@@ -18,13 +35,17 @@ def extract_race_info(tree, fis_race_id):
     date_time_string = '{} {} {}'.format(race_date, race_time, race_time_zone)
 
     race_date_time = parse(date_time_string)
+    race_short_name = create_short_name(race_name, race_kind)
 
     print(date_time_string)
-    print(race_name, race_kind, race_date_time)
+    print(race_short_name, race_name, race_kind, race_date_time)
 
     (race_event, created) = RaceEvent.objects.get_or_create(fis_id=fis_race_id, defaults={
-        "location":race_name, "kind":race_kind, "race_date":race_date_time
+        "location":race_name, "kind":race_kind, "race_date":race_date_time,
     })
+    if created:
+        race_event.short_name = race_short_name
+        race_event.save()
 
     return race_event
 

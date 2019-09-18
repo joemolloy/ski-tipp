@@ -2,7 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from django import http
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Sum
+
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
@@ -11,9 +12,13 @@ from dal import autocomplete
 from django.views.generic.edit import CreateView, UpdateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from django.views.generic.base import TemplateView
 
 from skitipp.forms import *
-from skitipp.models import RaceEvent, Racer
+from skitipp.models import RaceEvent, Racer, TippPointTally
+
+from django.contrib.auth.models import User
+from django.forms.models import model_to_dict
 
 
 class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
@@ -32,7 +37,6 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
 class RaceListView(LoginRequiredMixin, ListView):
     template_name = 'race_list.html'
     model = RaceEvent
-    ordering = ['race_date']
 
     def get_queryset(self):
 
@@ -42,7 +46,7 @@ class RaceListView(LoginRequiredMixin, ListView):
             tipper=self.request.user,
             #created_at__gte=one_day_ago,
         )
-        return RaceEvent.objects.all().annotate(user_has_tipped=Exists(valid_tipp))
+        return RaceEvent.objects.all().order_by('race_date').annotate(user_has_tipped=Exists(valid_tipp))
 
 
     def get_context_data(self, **kwargs):
@@ -98,6 +102,47 @@ class TippCreateView(LoginRequiredMixin, CreateView):
         return kwargs
 
 
+from collections import defaultdict, OrderedDict
+
+def leaderboardDataView(request):
+    all_races = RaceEvent.objects.all().order_by('race_date')
+    ranked_users = User.objects.all().annotate(total_points=Sum('points_tally__total_points')).order_by('-total_points')
+
+    #tally up the points for the race for each active user
+
+    race_list = [ model_to_dict(r, fields=['fis_id', 'location', 'kind', 'short_name']) for r in all_races ]
+    leaderboard = []
+
+    for u in ranked_users:
+        user_row = { 'user' : model_to_dict(u, fields=['id', 'username']), 'races' : [], 'total' : u.total_points }
+
+        user_race_points = TippPointTally.objects.filter(tipper=u)
+
+        for race in all_races:
+            race_points = user_race_points.filter(race_event=race).first()
+            user_row['races'].append(race_points.total_points if race_points else 0)
+
+        leaderboard.append(user_row)
+
+    print(race_list)
+    print(leaderboard)
+
+    data = { "races" : race_list, "data" : leaderboard }
+
+    return http.JsonResponse(data, json_dumps_params={'indent': 4} )
+
+
+class LeaderboardView(LoginRequiredMixin, TemplateView):
+    template_name = "leaderboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super(LeaderboardView, self).get_context_data(**kwargs)
+        context['leaderboard'] = 'active'
+        return context
+
+
+
+
 from skitipp import fis_connector
 
 def upload_race(request):
@@ -124,5 +169,24 @@ def upload_race(request):
     return render(request, 'upload_race_form.html', {'form': form})
 
 def update_race(request, race_id):
-    race = fis_connector.get_race_results(race_id)
-    return HttpResponseRedirect(race.get_absolute_url())
+    race_event = fis_connector.get_race_results(race_id)
+    return HttpResponseRedirect(race_event.get_absolute_url())
+
+def finalize_race(request, race_id):
+    #delete points from this race
+    TippPointTally.objects.filter(race_event_id=race_id).delete()
+    race_event = RaceEvent.objects.get(pk=race_id)
+    race_tipps = {t.tipper : t for t in race_event.get_last_tipps}
+    #tally up the points for the race for each active user
+    for u in User.objects.all():
+        last_tipp = race_tipps.get(u)
+        
+        user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=last_tipp)
+        user_tally.total_points = int(last_tipp is not None)
+        print(user_tally)
+        user_tally.save()
+
+    return HttpResponseRedirect(race_event.get_absolute_url())
+
+
+

@@ -5,7 +5,7 @@
     {% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
     {% endif %} 
     </h1>
-    <p>{{ object.discipline }}</p>
+    <p>{{ object.kind }}</p>
     <p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
 
     <p>FIS ID: {{ object.fis_id }}</p>
@@ -16,7 +16,7 @@
         <div class="btn-group" role="group">
             <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit race details</a>
             <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Refresh from FIS</a>
-            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Close and Process Tips</a> 
+            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Close and Process Tips</a> 
         </div>
     {% endif %}
 
