@@ -13,9 +13,10 @@
     {% if object.cancelled %} <p>Cancelled</p> {% endif %}
 
     {% if user.is_staff %} 
-        <div>
-            <a href="{% url 'edit_race' object.pk %}"> <button>Edit race details</button></a>
-            <a href="{% url 'update_race' object.pk %}"> <button>Refresh from FIS</button></a>
+        <div class="btn-group" role="group">
+            <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit race details</a>
+            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Refresh from FIS</a>
+            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Close and Process Tips</a> 
         </div>
     {% endif %}
 

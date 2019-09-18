@@ -1,32 +1,37 @@
 {% extends "base.html" %}
+{% load i18n %} 
 
 {% block page_content %}
 
 <h1>Races</h1>
-<div class="races_list container">
+<div class="races_list">
 {% for race_event in object_list %}
     <a href="{{ race_event.get_absolute_url }}">
-        <div class="row race_row {{ race_event.status }}">
-            <div class="col race_location">
-                {{ race_event.location }}
+        <div class="race_row {{ race_event.status }}">
+            <div class="race_card_col">
+                <div class="race_location">
+                    {{ race_event.location }}
+                </div>
+                <div class="race_kind">
+                    {{ race_event.kind }}
+                </div>
+                <div class="race_date">
+                    {{ race_event.race_date|date }} 
+                </div>
             </div>
-            <div class="col race_kind">
-                {{ race_event.kind }}
-            </div>
-            <div class="col race_date">
-                {{ race_event.race_date|date }} 
-            </div>
-            <div class="col race_date">
-                {% if race_event.user_has_tipped %} 
-                    tipped
-                {% else %}
-                    --
-                {% endif %}
+            <div class="race_card_col">
+                <div class="race_date mt-auto mr-auto">
+                    {% if race_event.user_has_tipped %} 
+                        {% trans 'tipped'%}
+                    {% else %}
+                        --
+                    {% endif %}
+                </div>
             </div>
         </div>
     </a>
 {% empty %}
-    <div class="row race_row empty">No races yet.</div>
+    <div class="race_row empty rd-flex flex-row">{% trans 'No races yet.' %}</div>
 {% endfor %}
 </div>
 

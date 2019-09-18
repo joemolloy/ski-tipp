@@ -1,0 +1,63 @@
+.races_list  {
+    padding: 20px;
+}
+
+.races_list .race_row {
+    width: 600px;
+    border: 1px solid  #cccccc;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 5px;
+    display:flex;
+    justify-content: space-between;
+
+}
+
+.races_list .race_row.cancelled {
+    background-color: lightgrey
+}
+
+.races_list .race_row.finished {
+    background-color: lightpink
+}
+
+div.race_card_col {
+    display: flex;
+    flex-direction: column;
+}
+
+.race_details {
+    padding: 20px;
+}
+
+.tipp_list {
+    padding: 20px;
+}
+
+.tipp {
+    margin-top: 5px;
+    width: 400px;
+    border: 1px solid  #cccccc;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.mytipp {
+    border-width: 3px;
+}
+
+div.place1::before {
+    content: "1. ";
+  }
+
+div.place2::before {
+    content: "2. ";
+  }
+
+div.place3::before {
+    content: "3. ";
+  }
+
+div.dnf::before {
+    content: "dnf: ";
+  }

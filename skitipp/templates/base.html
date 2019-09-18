@@ -30,7 +30,8 @@
                 {{ request.user }}
                 </a>
                 <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                {% if user.is_staff %} <a class="dropdown-item" href="#">Admin</a> {% endif %}
+                {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
+                {% if user.is_staff %} <a class="dropdown-item" href="{% url 'upload_race' %}">Add Race</a> {% endif %}
                 <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                 </div>
             </li>
