@@ -7,7 +7,7 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
+<nav class="navbar navbar-expand-lg  navbar-dark bg-dark">
   <a class="navbar-brand" href="#">ISTV</a>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
@@ -20,21 +20,24 @@
       <li class="nav-item">
         <a class="nav-link" href="#">Leaderboard</a>
       </li>
-      {% if user.is_authenticated %}
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            {{ request.user }}
-            </a>
-            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-            {% if user.is_staff %} <a class="dropdown-item" href="#">Admin</a> {% endif %}
-            <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
-            </div>
-        </li>
-    {% else %}
-        <li class="nav-item">
-            <a class="nav-link" href="{% url 'login' %}">Login</a>
-        </li>
-    {% endif %}
+    </ul>
+    <ul class="navbar-nav ml-auto">
+
+        {% if user.is_authenticated %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                {{ request.user }}
+                </a>
+                <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                {% if user.is_staff %} <a class="dropdown-item" href="#">Admin</a> {% endif %}
+                <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
+                </div>
+            </li>
+        {% else %}
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'login' %}">Login</a>
+            </li>
+        {% endif %}
     </ul>
   </div>
 </nav>
