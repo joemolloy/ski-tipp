@@ -110,6 +110,7 @@ def get_race_results(fis_race_id):
     print("Number of completed racers: ", len(finishers))
     print("Number of dnf racers: ", len(dnfs))
 
+    return race_event
 
 if __name__ == '__main__':
     get_race_results(95527)

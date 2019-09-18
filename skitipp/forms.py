@@ -11,8 +11,7 @@ class RaceEventForm(forms.ModelForm):
     class Meta:
         model = RaceEvent
 
-        fields = ['location','kind','race_date',
-            'fis_id','finished','points_multiplier']
+        fields = ['finished','points_multiplier']
 
 class TippForm(forms.ModelForm):
     class Meta:
@@ -20,7 +19,6 @@ class TippForm(forms.ModelForm):
 
         fields = ['race_event','tipper', 'place_1','place_2','place_3','dnf','comment']
         widgets = {
-            'race_event': forms.HiddenInput(),
             'tipper': forms.HiddenInput(),
             'place_1': autocomplete.ModelSelect2(url='racer-autocomplete'),
             'place_2': autocomplete.ModelSelect2(url='racer-autocomplete'),
@@ -48,5 +46,7 @@ class TippForm(forms.ModelForm):
             raise ValidationError(_('DNF or Alle im Ziel?'))
 
         
+class UploadRaceForm(forms.Form):
+    fis_id = forms.IntegerField(label='FIS ID')
 
-        
+

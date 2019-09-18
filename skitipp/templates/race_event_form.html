@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 
+{% load tz %}
+
 {% block page_content %}
+
+<h1>{{ form.instance.location }} </h1>
+
+<p>{{ form.instance.discipline }}</p>
+<p>Race Date (CET): {{ form.instance.race_date|timezone:"Europe/Zurich" }}</p>
+<p>FIS ID: {{ form.instance.fis_id }}</p>
 
 <form method="post">{% csrf_token %}
     {{ form.as_p }}

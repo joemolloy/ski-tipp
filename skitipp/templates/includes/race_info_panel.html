@@ -11,4 +11,12 @@
     <p>FIS ID: {{ object.fis_id }}</p>
     <p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
     {% if object.cancelled %} <p>Cancelled</p> {% endif %}
+
+    {% if user.is_staff %} 
+        <div>
+            <a href="{% url 'edit_race' object.pk %}"> <button>Edit race details</button></a>
+            <a href="{% url 'update_race' object.pk %}"> <button>Refresh from FIS</button></a>
+        </div>
+    {% endif %}
+
 </div>
