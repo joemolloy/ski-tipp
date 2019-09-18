@@ -28,11 +28,15 @@ def extract_race_info(tree, fis_race_id):
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
     race_date = tree.xpath('//span[@class="date__full"]/text()')[0]
 
-    race_time_elem = tree.xpath('//div[@class="time schedule-list__time"]')[0]
-    race_time = race_time_elem.attrib['data-default-time']
-    race_time_zone = race_time_elem.attrib['data-default-timezone']
+    race_time_elem = tree.xpath('//div[@class="time schedule-list__time"]')
+    
+    if race_time_elem:
+        race_time = race_time_elem[0].attrib['data-default-time']
+        race_time_zone = race_time_elem[0].attrib['data-default-timezone']
+        date_time_string = '{} {} {}'.format(race_date, race_time, race_time_zone)
+    else:
+        date_time_string = race_date
 
-    date_time_string = '{} {} {}'.format(race_date, race_time, race_time_zone)
 
     race_date_time = parse(date_time_string)
     race_short_name = create_short_name(race_name, race_kind)
