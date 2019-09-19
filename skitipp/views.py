@@ -50,7 +50,14 @@ class RaceListView(LoginRequiredMixin, ListView):
             tipper=self.request.user,
             #created_at__gte=one_day_ago,
         )
-        return RaceEvent.objects.all().order_by('race_date').annotate(user_has_tipped=Exists(valid_tipp))
+        return RaceEvent.objects.all().annotate(
+            user_has_tipped=Exists(valid_tipp),
+            race_status=Case(
+                When(finished=True, then=Value('Finished')),
+                default=Value('Upcoming'),
+                output_field=CharField(),
+            )
+        ).order_by('-race_status', 'race_date')
 
 
     def get_context_data(self, **kwargs):

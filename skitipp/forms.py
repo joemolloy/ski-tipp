@@ -32,7 +32,7 @@ class RaceEventForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = RaceEvent
 
-        fields = ['finished','points_multiplier', 'short_name']
+        fields = ['finished','cancelled', 'points_multiplier', 'short_name']
         
 class TippForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:

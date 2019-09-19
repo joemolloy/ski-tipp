@@ -1,16 +1,28 @@
 {% load tz %}
 
 <div class="race_details">
-    <h1>{{ object.location }} 
+    <h1>
+        {{ object.location }}  
+    </h1>
+
+    <p>
+        {{ object.kind }}
+        
+        {% if object.cancelled %} 
+            <span class="badge badge-danger">Cancelled</span> 
+        {% elif object.finished %}
+            <span class="badge badge-primary">Finished</span>
+        {% else %}
+            <span class="badge badge-success">Open</span>
+        {% endif %}
     {% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
     {% endif %} 
-    </h1>
-    <p>{{ object.kind }}</p>
+    
+    </p>
     <p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>
 
     <p>FIS ID: {{ object.fis_id }}</p>
     <p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
-    {% if object.cancelled %} <p>Cancelled</p> {% endif %}
 
     {% if user.is_staff %} 
         <div class="btn-group" role="group">

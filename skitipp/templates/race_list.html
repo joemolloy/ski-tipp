@@ -3,36 +3,52 @@
 
 {% block page_content %}
 
-<h1>Races</h1>
-<div class="races_list">
-{% for race_event in object_list %}
-    <a href="{{ race_event.get_absolute_url }}">
-        <div class="race_row {{ race_event.status }}">
-            <div class="race_card_col">
-                <div class="race_location">
-                    {{ race_event.location }}
-                </div>
-                <div class="race_kind">
-                    {{ race_event.kind }}
-                </div>
-                <div class="race_date">
-                    {{ race_event.race_date|date }} 
-                </div>
-            </div>
-            <div class="race_card_col">
-                <div class="race_date mt-auto mr-auto">
-                    {% if race_event.user_has_tipped %} 
-                        {% trans 'tipped'%}
-                    {% else %}
-                        --
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </a>
-{% empty %}
-    <div class="race_row empty rd-flex flex-row">{% trans 'No races yet.' %}</div>
-{% endfor %}
+{% regroup object_list by race_status as status_list %}
+{% for status in status_list %}
+<div class="row mb-2">
+    <div class="col-md-6">
+        <h3>{{ status.grouper }} Races</h3>
+    </div>
 </div>
+<div class="row mb-2">
+    <div class="col-md-6">
+    <div class="races_list">
+    {% for race_event in status.list %}
+        <a href="{{ race_event.get_absolute_url }}">
+            <div class="race_row {{ race_event.status }}">
+                <div class="race_card_col">
+                    <div class="race_location">
+                        {{ race_event.location }}
+                    </div>
+                    <div class="race_kind">
+                        {{ race_event.kind }}
+                    </div>
+                    <div class="race_date">
+                        {{ race_event.race_date|date }} 
+                    </div>
+                </div>
+                <div class="race_card_col">
+                
+                    <div class="race_date mt-auto mr-auto">
+                        {% if race_event.cancelled %} 
+                           <span class="badge badge-danger"> {% trans 'cancelled'%} </span>
+                        {% elif race_event.user_has_tipped %} 
+                            <span class="badge badge-success"> {% trans 'tipped'%} </span>
+                        {% else %}
+                            --
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </a>
+    {% empty %}
+        <div class="race_row empty rd-flex flex-row">{% trans 'No races' %}</div>
+    {% endfor %}
+    </div>
+    </div>
+</div>
+
+{% endfor %}
+
 
 {% endblock %}

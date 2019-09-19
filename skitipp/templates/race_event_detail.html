@@ -29,72 +29,74 @@
                     <div class="dnf"> {{ current_tipp.dnf }} </div>
                 </div>
             {% else %}
-            No tip made yet!
+            No tip made!
             {% endif %}
         </div>
     </div>
 </div>
-<hr>
-<div class="row view_toggle">
-    <div class="col-6">
-        <button id="tipps_btn" type="button" class="btn btn-lg btn-block btn-secondary">Tipps</button>
+{% if not object.cancelled %}
+    <hr>
+    <div class="row view_toggle">
+        <div class="col-6">
+            <button id="tipps_btn" type="button" class="btn btn-lg btn-block btn-secondary">Tipps</button>
+        </div>
+        <div class="col-6">
+            <button id="results_btn"  type="button" class="btn btn-lg btn-block btn-outline-secondary">Race Results</button>
+        </div>
     </div>
-    <div class="col-6">
-        <button id="results_btn"  type="button" class="btn btn-lg btn-block btn-outline-secondary">Race Results</button>
-    </div>
-</div>
-<div class="container tipp_result_accordian">
-<div class="row tipp_list">
-    <div class="col">
-        {% if object.finished %}
-        <div id="tipps_panel" class="collapse show">
-            {% for tipp in object.get_last_tipps %}
-                {% if tipp.tipper != request.user %}
-                    <div class="tipp rd-flex flex-row">
-                        <div>
-                            <div class="tipper"> {{ tipp.tipper.username }} </div>
-                            <div class="place1"> {{ tipp.place_1 }} </div>
-                            <div class="place2"> {{ tipp.place_2}} </div>
-                            <div class="place3"> {{ tipp.place_3 }} </div>
-                            <div class="dnf"> {{ tipp.dnf }} </div>
+    <div class="container tipp_result_accordian">
+    <div class="row tipp_list">
+        <div class="col">
+            {% if object.finished %}
+            <div id="tipps_panel" class="collapse show">
+                {% for tipp in object.get_last_tipps %}
+                    {% if tipp.tipper != request.user %}
+                        <div class="tipp rd-flex flex-row">
+                            <div>
+                                <div class="tipper"> {{ tipp.tipper.username }} </div>
+                                <div class="place1"> {{ tipp.place_1 }} </div>
+                                <div class="place2"> {{ tipp.place_2}} </div>
+                                <div class="place3"> {{ tipp.place_3 }} </div>
+                                <div class="dnf"> {{ tipp.dnf }} </div>
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-            {% empty%}
-                <div class="tipp rd-flex flex-row">
-                    No other tipps submitted
-                </div>
-
-            {% endfor %}
-        </div>
-        <div id="results_panel" class="collapse">
-            <div class="podium">
-                    <h3>Podium</h3>
-                    {% for r in object.podium %}
-                    <div> {{ forloop.counter }}. {{ r.racer.name }} </div>
-                    {% endfor %}
-                </div>
-
-                <div class="dnf_list">
-                    {% if object.alle_im_ziel %}
-                        <h3>Alle im Ziel<h3>
-                    {% else %}
-                        <h3>dnf</h3>
-                        {% for r in object.dnfs %}
-                        <div> {{ r.racer.name }} </div>
-                        {% endfor %}
                     {% endif %}
-                </div>
-            </div>
+                {% empty%}
+                    <div class="tipp rd-flex flex-row">
+                        No other tipps submitted
+                    </div>
 
-        {% else %}
-        <div class="tipp rd-flex flex-row">
-            Race still open!
+                {% endfor %}
+            </div>
+            <div id="results_panel" class="collapse">
+                <div class="podium">
+                        <h3>Podium</h3>
+                        {% for r in object.podium %}
+                        <div> {{ forloop.counter }}. {{ r.racer.name }} </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="dnf_list">
+                        {% if object.alle_im_ziel %}
+                            <h3>Alle im Ziel<h3>
+                        {% else %}
+                            <h3>dnf</h3>
+                            {% for r in object.dnfs %}
+                            <div> {{ r.racer.name }} </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+
+            {% else %}
+            <div class="tipp rd-flex flex-row">
+                Race still open!
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
-</div>
-</div>
+    </div>
+{% endif %}
 
 {% endblock %}
 
