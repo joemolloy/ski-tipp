@@ -18,6 +18,8 @@ def create_short_name(race_name, race_gender_kind):
         "Super G": "SG",
         "Alpine Combined" : "AC",
         "City Event" : "CE",
+        "Parallel Giant Slalom" : "PGS",
+        "Parallel Slalom" : "PSL"
     }
     abrv_kind = race_kind_mapping.get(race_kind, "??")
 
@@ -48,6 +50,7 @@ def extract_race_info(tree, fis_race_id):
         "location":race_name, "kind":race_kind, "race_date":race_date_time,
     })
     if created:
+        race_event.start_list_length = 30
         race_event.short_name = race_short_name
         race_event.save()
 
@@ -105,12 +108,12 @@ def get_dnf_racers(tree, race_event):
                 name = str(cols[2]).strip()
 
                 racer, created = Racer.objects.get_or_create(fis_id=fis_id, name=name)
-                
-                RaceCompetitor.objects.update_or_create(
-                    race_event_id=race_event.fis_id, 
-                    racer_id=racer.fis_id, 
-                    defaults={'start_number': start_number, 'is_dnf': True}
-                )
+                if start_number <= race_event.start_list_length:
+                    RaceCompetitor.objects.update_or_create(
+                        race_event_id=race_event.fis_id, 
+                        racer_id=racer.fis_id, 
+                        defaults={'start_number': start_number, 'is_dnf': True}
+                    )
                 
                 dnf_athletes.append({"start_number": start_number, "racer": racer})
 

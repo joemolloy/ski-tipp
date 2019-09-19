@@ -59,12 +59,8 @@ div.dnf::before {
     padding-bottom:30px;
 }
 
-#points_form label  {
-    width: 25%;
-}
-
-#points_form input  {
-    border: 1px solid lightgrey;
+.select2-selection {
+    height: 40px ! important;
 }
 
 #points_form textarea[name="reason"]  {

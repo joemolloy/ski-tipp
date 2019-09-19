@@ -220,9 +220,7 @@ def finalize_race(request, race_id):
 
 class PointAdjustmentListView(CreateView):
     
-    model = PointAdjustment
-    fields = ['tipper', 'reason', 'points']
-
+    form_class = PointAdjustmentForm
     template_name = "point_adjustments.html"
 
     def get_context_data(self, **kwargs):

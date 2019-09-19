@@ -37,6 +37,7 @@ class RaceEvent(models.Model):
     points_multiplier = models.IntegerField(default=1)
 
     short_name = models.CharField(max_length=10)
+    start_list_length = models.IntegerField(null=False)
 
     def get_absolute_url(self):
         return reverse('race_detail', kwargs={'pk': self.pk})
@@ -84,6 +85,8 @@ class RaceEvent(models.Model):
     def tipp_link(self):
             return reverse('create_tipp', kwargs={'race_id': self.pk})
         
+    def __str__(self):
+        return self.short_name
 
 class RaceCompetitor(models.Model):
 
