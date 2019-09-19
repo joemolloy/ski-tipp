@@ -47,10 +47,10 @@ def extract_race_info(tree, fis_race_id):
     print(race_short_name, race_name, race_kind, race_date_time)
 
     (race_event, created) = RaceEvent.objects.get_or_create(fis_id=fis_race_id, defaults={
-        "location":race_name, "kind":race_kind, "race_date":race_date_time,
+        "location":race_name, "kind":race_kind, "race_date":race_date_time, 'start_list_length':30
     })
+    
     if created:
-        race_event.start_list_length = 30
         race_event.short_name = race_short_name
         race_event.save()
 
