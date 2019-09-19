@@ -20,5 +20,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('django.contrib.auth.urls')), # new
     path('app/', include('skitipp.urls')),
+    path('/', 'app/racelist/'),
 ]
 
