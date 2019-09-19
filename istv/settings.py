@@ -27,7 +27,7 @@ with open('istv/secret_key.txt') as f:
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['django-env.hjm7cexy84.us-west-2.elasticbeanstalk.com', 'skitipp.org']
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
