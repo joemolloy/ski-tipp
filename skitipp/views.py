@@ -141,7 +141,7 @@ def leaderboardDataView(request):
             'all_adj': user_adjustments.all_adj,
             'preseason_adj' : user_adjustments.preseason_adj, 
             'season_adj' : user_adjustments.season_adj,
-            'total' : u.race_total + user_adjustments.all_adj, 
+            'total' : 0.0 + u.race_total + user_adjustments.all_adj, 
         }
 
         user_race_points = u.user_points_tally
