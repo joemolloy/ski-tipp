@@ -24,6 +24,7 @@ from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
 
+import logging
 
 class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -213,15 +214,19 @@ def finalize_race(request, race_id):
     #delete points from this race
     TippPointTally.objects.filter(race_event_id=race_id).delete()
     race_event = RaceEvent.objects.get(pk=race_id)
+
+    print("finializing race {}".format(race_event))
+
     race_tipps = {t.tipper : t for t in race_event.get_last_tipps}
+
     #tally up the points for the race for each active user
     for u in User.objects.all():
         last_tipp = race_tipps.get(u)
-        
-        user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=last_tipp)
-        user_tally.total_points = int(last_tipp is not None)
-        print(user_tally)
-        user_tally.save()
+        if last_tipp:
+            user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=last_tipp)
+            user_tally.total_points = int(last_tipp is not None)
+            print(user_tally)
+            user_tally.save()
 
     return HttpResponseRedirect(race_event.get_absolute_url())
 
