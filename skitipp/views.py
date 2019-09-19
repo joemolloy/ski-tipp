@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 
 from django.db import models
-from django.db.models import Exists, OuterRef, Sum, Case, CharField, Value, When
+from django.db.models import Exists, OuterRef, Sum, Case, CharField, Value, When, Q, F
 
 
 from django.http import HttpResponseRedirect
@@ -111,7 +111,14 @@ from collections import defaultdict, OrderedDict
 @login_required
 def leaderboardDataView(request):
     all_races = RaceEvent.objects.all().order_by('race_date')
-    ranked_users = User.objects.all().annotate(total_points=Sum('points_tally__total_points')).order_by('-total_points')
+    ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points'))
+
+    adjustments = User.objects.all().annotate(
+        all_adj=Sum('points_adjustments__points'),
+        preseason_adj=Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=True)),
+        season_adj=Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=False))
+    ).order_by('-total_points')
+    
 
     #tally up the points for the race for each active user
 
@@ -119,15 +126,25 @@ def leaderboardDataView(request):
     leaderboard = []
 
     for u in ranked_users:
-        user_row = { 'user' : model_to_dict(u, fields=['id', 'username']), 'races' : [], 'total' : u.total_points }
+        user_adjustments = adjustments.get(id=u.id)
+        user_row = { 
+            'user' : model_to_dict(u, fields=['id', 'username']), 
+            'races' : [], 
+            'race_total': u.race_total,
+            'all_adj': user_adjustments.all_adj,
+            'preseason_adj' : user_adjustments.preseason_adj, 
+            'season_adj' : user_adjustments.season_adj,
+            'total' : u.race_total + user_adjustments.all_adj, 
+        }
 
-        user_race_points = TippPointTally.objects.filter(tipper=u)
+        user_race_points = u.user_points_tally
 
+        print(" test" , user_race_points)
         for race in all_races:
             race_points = user_race_points.filter(race_event=race).first()
             if race_points:
                 total_points = race_points.total_points
-                total_points = int(total_points) if total_points.is_integer() else total_points
+                #total_points = int(total_points) if total_points.is_integer() else total_points
             else:
                 total_points = None
             user_row['races'].append(total_points)

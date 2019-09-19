@@ -113,3 +113,13 @@ div.pa_card_col {
     margin-top:auto;
     color: darkred;
 }
+
+/*  leaderboard */
+td.table-cell-total {
+    font-weight: 700;
+    background-color: #cccccc;
+}
+
+td.table_value {
+    text-align: center
+}

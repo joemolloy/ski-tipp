@@ -24,14 +24,20 @@ $(document).ready(function() {
             "url": '{% url 'leaderboard_data' %}',
             "success": function(json) {
                 var tableHeaders = "<th>" + 'Tipper' + "</th>";
-                var columns1 = [{ "data": "user.username" }]
+                var columns1 = [{ "data": "user.username", "className": "table-cell-tipper" }]
 
                 tableHeaders += "<th>" + 'Total' + "</th>";
-                columns1.push({ "data": "total" })
+                columns1.push({ "data": "total", "className": "table_value table-cell-total" })
+
+                tableHeaders += "<th>" + 'Start Pts' + "</th>";
+                columns1.push({ "data": "preseason_adj", "className": "table_value" })
+
+                tableHeaders += "<th>" + 'Season Pts' + "</th>";
+                columns1.push({ "data": "season_adj", "className": "table_value"  })
 
                 $.each(json.races, function(i, val){
                     tableHeaders += "<th>" + val.short_name + "</th>";
-                    columns1.push({ "data": "races."+i})
+                    columns1.push({ "data": "races."+i , "className": "table_value" })
                 });
 
                 $("#leaderboard").empty();
