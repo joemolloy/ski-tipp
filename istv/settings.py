@@ -22,11 +22,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: keep the secret key used in production secret!
 
 # SECURITY WARNING: don't run with debug turned on in production!
-SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
-DEBUG = True
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+DEBUG = os.environ.get('DJANGO_DEBUG')
 
-ALLOWED_HOSTS = ['django-env.hjm7cexy84.us-west-2.elasticbeanstalk.com', 'skitipp.org']
+
+ALLOWED_HOSTS = ['localhost', 'django-env.hjm7cexy84.us-west-2.elasticbeanstalk.com', 'skitipp.org']
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
