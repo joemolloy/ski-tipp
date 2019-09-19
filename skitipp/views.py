@@ -135,14 +135,18 @@ def leaderboardDataView(request):
 
     for u in ranked_users:
         user_adjustments = adjustments.get(id=u.id)
+
+        race_total = u.race_total if u.race_total is not None else 0
+        adj_total = user_adjustments.all_adj if user_adjustments.all_adj is not None else 0
+
         user_row = { 
             'user' : model_to_dict(u, fields=['id', 'username']), 
             'races' : [], 
-            'race_total': u.race_total,
-            'all_adj': user_adjustments.all_adj,
+            'race_total': race_total,
+            'all_adj': adj_total ,
             'preseason_adj' : user_adjustments.preseason_adj, 
             'season_adj' : user_adjustments.season_adj,
-            'total' : 0.0 + u.race_total + user_adjustments.all_adj, 
+            'total' : race_total + adj_total, 
         }
 
         user_race_points = u.user_points_tally
