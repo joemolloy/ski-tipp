@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block page_content %}
+
+<div class="row">
+    <div class="col-auto">
+        {% if user.is_staff %} 
+        <div id="create_panel">
+            <h3> Create Adjustment </h3>
+
+            <form id="points_form" method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <input type="submit" value="Save" id="points_submit">
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-auto">
+        <h3> Point Adjustments <h3>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4 pa_list">
+        {% for adjustment in point_adjustment_list %}
+        <div class="pa_card">
+            <div class="pa_card_col">
+                <div class="pa_date"> {{ adjustment.created | date:"SHORT_DATE_FORMAT" }} </div>
+                <div class="pa_tipper"> {{ adjustment.tipper }} </div>
+                <div class="pa_reason"> {{ adjustment.reason }} </div>
+            </div>
+            <div class="pa_card_col">
+                {% if user.is_staff %}
+                <div class="pa_delete"> 
+                    <a href="{% url 'delete_point_adjustment' adjustment.pk %}" method="POST">x</a>
+                </div>
+                {% endif %}
+                <div class="pa_points {{ adjustment.sign }}">  {{ adjustment.points }} </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+
+
+
+{% endblock %}

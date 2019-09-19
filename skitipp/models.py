@@ -126,4 +126,14 @@ class TippPointTally(models.Model):
 
     total_points = models.FloatField(null=False)
 
+class PointAdjustment(models.Model):
+    tipper = models.ForeignKey('auth.User', related_name='points_adjustments', on_delete=models.CASCADE, null=False)
+    reason = models.CharField(max_length=200, null=False)
+    created = models.DateTimeField(auto_now_add=True)
+
+    points = models.FloatField(null=False, help_text="(+/-)")
+
+    def get_absolute_url(self):
+        return reverse('point_adjustments')
+
 

@@ -16,8 +16,12 @@ urlpatterns = [
 
     path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
 
-    path('leaderboard', views.LeaderboardView.as_view(), name='leaderboard'),
-    path('data/leaderboard', views.leaderboardDataView, name='leaderboard_data'),
+    path('leaderboard/', views.LeaderboardView.as_view(), name='leaderboard'),
+    path('data/leaderboard/', views.leaderboardDataView, name='leaderboard_data'),
+
+    path('point_adjustments/', views.PointAdjustmentListView.as_view(), name='point_adjustments'),
+    path('point_adjustments/<int:adjustment_id>/delete/', views.deletePointAdjustment, name='delete_point_adjustment'),
+
 
     path(
         r'racer-autocomplete/',

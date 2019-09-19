@@ -1,8 +1,12 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django import http
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+
 from django.db import models
-from django.db.models import Exists, OuterRef, Sum
+from django.db.models import Exists, OuterRef, Sum, Case, CharField, Value, When
+
 
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -15,7 +19,7 @@ from django.views.generic.list import ListView
 from django.views.generic.base import TemplateView
 
 from skitipp.forms import *
-from skitipp.models import RaceEvent, Racer, TippPointTally
+from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment
 
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
@@ -104,6 +108,7 @@ class TippCreateView(LoginRequiredMixin, CreateView):
 
 from collections import defaultdict, OrderedDict
 
+@login_required
 def leaderboardDataView(request):
     all_races = RaceEvent.objects.all().order_by('race_date')
     ranked_users = User.objects.all().annotate(total_points=Sum('points_tally__total_points')).order_by('-total_points')
@@ -120,7 +125,12 @@ def leaderboardDataView(request):
 
         for race in all_races:
             race_points = user_race_points.filter(race_event=race).first()
-            user_row['races'].append(race_points.total_points if race_points else 0)
+            if race_points:
+                total_points = race_points.total_points
+                total_points = int(total_points) if total_points.is_integer() else total_points
+            else:
+                total_points = None
+            user_row['races'].append(total_points)
 
         leaderboard.append(user_row)
 
@@ -145,6 +155,7 @@ class LeaderboardView(LoginRequiredMixin, TemplateView):
 
 from skitipp import fis_connector
 
+@staff_member_required
 def upload_race(request):
     # if this is a POST request we need to process the form data
     if request.method == 'POST':
@@ -168,10 +179,12 @@ def upload_race(request):
 
     return render(request, 'upload_race_form.html', {'form': form})
 
+@staff_member_required
 def update_race(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
     return HttpResponseRedirect(race_event.get_absolute_url())
 
+@staff_member_required
 def finalize_race(request, race_id):
     #delete points from this race
     TippPointTally.objects.filter(race_event_id=race_id).delete()
@@ -188,5 +201,28 @@ def finalize_race(request, race_id):
 
     return HttpResponseRedirect(race_event.get_absolute_url())
 
+class PointAdjustmentListView(CreateView):
+    
+    model = PointAdjustment
+    fields = ['tipper', 'reason', 'points']
 
+    template_name = "point_adjustments.html"
 
+    def get_context_data(self, **kwargs):
+        context = super(PointAdjustmentListView, self).get_context_data(**kwargs)
+        context['point_adjustment_list'] = PointAdjustment.objects.all().annotate(
+            sign=Case(
+                When(points__gt=0, then=Value('positive')),
+                default=Value('negative'),
+                output_field=CharField(),
+            )
+        ).order_by('-created')
+        
+        context['point_adjustments'] = 'active'
+
+        return context
+
+@staff_member_required
+def deletePointAdjustment(request, adjustment_id):
+    get_object_or_404(PointAdjustment, pk=adjustment_id).delete()
+    return redirect('point_adjustments')

@@ -49,4 +49,3 @@ class TippForm(forms.ModelForm):
 class UploadRaceForm(forms.Form):
     fis_id = forms.IntegerField(label='FIS ID')
 
-

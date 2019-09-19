@@ -58,3 +58,58 @@ div.dnf::before {
     padding-top:10px;
     padding-bottom:30px;
 }
+
+#points_form label  {
+    width: 25%;
+}
+
+#points_form input  {
+    border: 1px solid lightgrey;
+}
+
+#points_form textarea[name="reason"]  {
+    height: 40px;
+    width: 70%;
+}
+
+#points_form select[name="tipper"]  {
+    width: 70%;
+}
+
+#points_form input[name="points"]  {
+    width: 50%;
+}
+
+
+.pa_list .pa_card {
+    border: 1px solid  #cccccc;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 5px;
+    display:flex;
+    justify-content: space-between;
+
+}
+
+div.pa_card_col {
+    display: flex;
+    flex-direction: column;
+}
+
+.pa_delete {
+    text-align:right;
+}
+
+.pa_points {
+    margin-top:auto;
+    font-weight: 700;
+}
+
+.pa_points.positive {
+    margin-top:auto;
+    color: darkgreen;
+}
+.pa_points.negative {
+    margin-top:auto;
+    color: darkred;
+}
