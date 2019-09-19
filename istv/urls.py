@@ -17,12 +17,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponseRedirect
 
-from skitipp.views import RaceListView
+from skitipp.views import RaceListView, AboutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('django.contrib.auth.urls')), # new
     path('app/', include('skitipp.urls')),
     path('', RaceListView.as_view(), name='index'),
+    path('about/', AboutView.as_view(), name='about'),
 ]
 

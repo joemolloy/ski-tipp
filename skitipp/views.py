@@ -257,3 +257,6 @@ class PointAdjustmentListView(CreateView):
 def deletePointAdjustment(request, adjustment_id):
     get_object_or_404(PointAdjustment, pk=adjustment_id).delete()
     return redirect('point_adjustments')
+
+class AboutView(TemplateView):
+    template_name = "about.html"
