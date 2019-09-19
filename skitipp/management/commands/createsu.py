@@ -10,4 +10,4 @@ class Command(BaseCommand):
         initial_password = os.environ.get('INITIAL_ISTV_SUPER_USER_PASSWORD', "password")
 
         if not User.objects.filter(username="joemolloy").exists():
-            User.objects.create_superuser("joemolloy", "joe.m34@gmail.com", initial_password,"admin")
+            User.objects.create_superuser("joemolloy", "joe.m34@gmail.com", initial_password)
