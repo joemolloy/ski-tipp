@@ -19,12 +19,13 @@ class BootstrapFormMixin(object):
             if classes is None:
                 classes = ""
             
-            if self.fields[field].widget.input_type == 'checkbox':
+            widget = self.fields[field].widget
+            if hasattr(widget, 'input_type') and widget.input_type == 'checkbox':
                 classes += " form-check form-check-inline"
             else:
                 classes = "form-control"
 
-            self.fields[field].widget.attrs.update({
+            widget.attrs.update({
                 'class': classes
             })
         
