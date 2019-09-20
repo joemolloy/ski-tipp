@@ -14,10 +14,6 @@
     background-color: lightgrey
 }
 
-.races_list .race_row.finished {
-    background-color: lightpink
-}
-
 div.race_card_col {
     display: flex;
     flex-direction: column;

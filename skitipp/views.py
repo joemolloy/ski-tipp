@@ -127,8 +127,15 @@ from collections import defaultdict, OrderedDict
 
 @login_required
 def leaderboardDataView(request):
+
     all_races = RaceEvent.objects.all().order_by('race_date')
     ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points'))
+    
+    #todo: remove
+    for r in all_races:
+        if 'Men' in r.kind:
+            r.kind = r.kind.split(' ', 1)[1]
+            r.save()
 
     adjustments = User.objects.all().annotate(
         all_adj=Sum('points_adjustments__points'),
@@ -219,6 +226,25 @@ def update_race(request, race_id):
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 @staff_member_required
+def rescore_all_races(request):
+
+    TippPointTally.objects.all().delete()
+
+    for race_event in RaceEvent.objects.filter(finished=True).order_by('race_date'):
+        
+        race_event = fis_connector.get_race_results(race_event.fis_id)
+
+        if not race_event.start_list.exists():
+            #race results are not published
+            messages.error(request, "Race Results are not available for {}".format(race_event))
+        else:
+            tipp_scorer.score_race(race_event)
+    
+    return redirect(reverse('leaderboard'))
+
+
+
+@staff_member_required
 def finalize_race(request, race_id):
 
     #update race first
@@ -226,43 +252,18 @@ def finalize_race(request, race_id):
 
     if not race_event.start_list.exists():
         #race results are not published
-        print("race couldn't be finalized as no startlist available")
         messages.error(request, "Race Results are not available to finalize race")
-
         return HttpResponseRedirect(race_event.get_absolute_url())
 
     #results exist, continue with finalizing
     race_event.finished = True
     race_event.save(update_fields=['finished'])
 
-
     print("finializing race {}".format(race_event))
     #delete points from this race
-    TippPointTally.objects.filter(race_event_id=race_id).delete()
-
-    race_tipp_tallies = tipp_scorer.score_race(race_event)
-    race_tipp_tallies = { rt.tipper : rt for rt in race_tipp_tallies }
-
-    #document this
-    users = User.objects.all().annotate(
-        prev_no_tipp_offences=Count("user_points_tally", filter=Q(
-                user_points_tally__race_event__race_date__lt=race_event.race_date,
-                user_points_tally__tipp__isnull=True
-            )
-        )
-    )
-
-    #assign negative points for missed tip
-    for u in users:
-        user_point_tally = race_tipp_tallies.get(u)
-
-        if user_point_tally is None:
-            user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=None)
-            no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
-            user_tally.standard_points = -no_tipp_penalty
-
-
-            user_tally.save()
+    race_event.tipp_points_tally.delete()
+    #score race
+    tipp_scorer.score_race(race_event)
     
     messages.success(request, "{} was finalized".format(race_event))
     return HttpResponseRedirect(race_event.get_absolute_url())

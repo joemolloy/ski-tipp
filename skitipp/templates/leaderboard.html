@@ -12,6 +12,12 @@
 <div id="leaderboard" class="display">
 </div>
 
+{% if user.is_staff %}
+<div>
+    <a class="btn btn-primary mb-2" href="{% url 'rescore_all_races' %}" role="button">Rescore all Races</a>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block javascript %}

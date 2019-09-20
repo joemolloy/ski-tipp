@@ -58,10 +58,6 @@ class RaceEvent(models.Model):
         return not self.dnfs.exists()
 
     @property
-    def dnf_eligible(self):
-        return True
-
-    @property
     def status(self):
         if self.cancelled:
             return "cancelled"
@@ -73,8 +69,11 @@ class RaceEvent(models.Model):
     @property
     def get_last_tipps(self):
         last_tipps = []
-        for u in User.objects.filter():
-            user_last_tipp = u.tipps.filter(race_event=self).order_by("-created").first()
+        for u in User.objects.all().prefetch_related('tipps'):
+            user_last_tipp = u.tipps.filter(
+                race_event=self, created__lt=self.race_date
+            ).order_by("-created").first()
+
             if user_last_tipp:
                 last_tipps.append(user_last_tipp)
 
@@ -82,15 +81,15 @@ class RaceEvent(models.Model):
 
     @property
     def is_tech_event(self):
-        race_kind = self.kind[6:]
-        return RACE_TYPES[race_kind] == 'tech'
+        return RACE_TYPES[self.kind] == 'tech'
 
     @property
     def is_speed_event(self):
-        race_kind = self.kind[6:]
-        return RACE_TYPES[race_kind] == 'speed'
+        return RACE_TYPES[self.kind] == 'speed'
 
-
+    @property
+    def dnf_eligible(self):
+        return self.is_tech_event or self.is_speed_event
 
     def detail_link(self):
         return reverse('race_detail', kwargs={'pk': self.pk})

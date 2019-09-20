@@ -40,6 +40,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
         model = Tipp
 
         fields = ['race_event','tipper', 'place_1','place_2','place_3','dnf','comment']
+
         widgets = {
             'race_event': forms.HiddenInput(),
             'tipper': forms.HiddenInput(),
@@ -57,16 +58,16 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
         super(TippForm, self).__init__(*args, **kwargs)
         
     #validation
-    def clean(self):
-
+    def clean_dnf(self):
         cleaned_data = super().clean()
-
-        race_event = cleaned_data.get("race_event")
         dnf = cleaned_data.get("dnf")
 
-        print(race_event)
+        race_event = cleaned_data.get("race_event")
+        
         if race_event.dnf_eligible and dnf is None:
-            raise ValidationError(_('DNF or Alle im Ziel?'))
+            raise forms.ValidationError(
+                    "Please select Alle im Ziel or a DNF Racer"
+                )
 
         
 class UploadRaceForm(BootstrapFormMixin, forms.Form):

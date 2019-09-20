@@ -6,10 +6,8 @@ import dateutil.parser as dp
 
 from skitipp.models import RaceEvent, Racer, RaceCompetitor
 
-def create_short_name(race_name, race_gender_kind):
-    abrv_name = race_name[:4]
-
-    race_kind = race_gender_kind[6:]
+def create_short_name(race_name, race_kind):
+    abrv_name = race_name[:4].strip()
 
     race_kind_mapping = {
         "Slalom" : "SL",
@@ -28,6 +26,9 @@ def create_short_name(race_name, race_gender_kind):
 def extract_race_info(tree, fis_race_id):
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
+
+    #remove "Men's " from race_kind
+    race_kind =     race_kind.split(' ', 1)[1]
     race_date = tree.xpath('//span[@class="date__full"]/text()')[0]
 
     race_time_elem = tree.xpath('//div[@class="time schedule-list__time"]')

@@ -15,6 +15,7 @@ urlpatterns = [
     path('race/<int:race_id>/update/', views.update_race, name='update_race'),
 
     path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
+    path('leaderboard/rescore_races/', views.rescore_all_races, name='rescore_all_races'),
 
     path('leaderboard/', views.LeaderboardView.as_view(), name='leaderboard'),
     path('data/leaderboard/', views.leaderboardDataView, name='leaderboard_data'),
