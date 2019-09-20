@@ -91,9 +91,6 @@ class RaceEventDetailView(LoginRequiredMixin, DetailView):
 
         if len(tipps):
             context['current_tipp'] = tipps[0]
-            print(tipps[0].dnf)
-            print(tipps[0].tipp_points_tally)
-            print(tipps[0].is_best_tipp)
 
         return context
 
