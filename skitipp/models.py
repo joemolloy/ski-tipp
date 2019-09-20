@@ -16,14 +16,16 @@ class Racer(models.Model):
     def __str__(self):
         return self.name
 
-RACE_TYPES = [
-    ('SL', 'Slalom'),
-    ('GS', 'Riesentorlauf'),
-    ('SG', 'Super-G'),
-    ('DH', 'Abfahrt'),
-    ('AC', 'Kombi'),
-    ('CT', 'City'),
-]
+RACE_TYPES = {
+        "Slalom" : "tech",
+        "Giant Slalom" : "tech",
+        "Super G": "speed",
+        "Downhill" : "speed",
+        "Alpine Combined" : "other",
+        "City Event" : "other",
+        "Parallel Giant Slalom" : "other",
+        "Parallel Slalom" : "other"
+    }
 
 class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)
@@ -44,7 +46,7 @@ class RaceEvent(models.Model):
 
     @property
     def podium(self):
-        podium = self.start_list.filter(is_dnf=False).order_by('rank')[:3]
+        podium = self.start_list.filter(is_dnf=False, rank__lte=3).order_by('rank')
         return podium
 
     @property
@@ -76,7 +78,18 @@ class RaceEvent(models.Model):
             if user_last_tipp:
                 last_tipps.append(user_last_tipp)
 
-        return last_tipps        
+        return last_tipps
+
+    @property
+    def is_tech_event(self):
+        race_kind = self.kind[6:]
+        return RACE_TYPES[race_kind] == 'tech'
+
+    @property
+    def is_speed_event(self):
+        race_kind = self.kind[6:]
+        return RACE_TYPES[race_kind] == 'speed'
+
 
 
     def detail_link(self):
@@ -125,9 +138,21 @@ class Tipp(models.Model):
 class TippPointTally(models.Model):
     tipper = models.ForeignKey('auth.User', related_name='user_points_tally', on_delete=models.CASCADE)
     race_event = models.ForeignKey('RaceEvent', related_name='race_points_tally', on_delete=models.CASCADE)
-    tipp = models.OneToOneField('Tipp', related_name='tipp_points_tally', on_delete=models.CASCADE)
+    tipp = models.OneToOneField('Tipp', related_name='tipp_points_tally', on_delete=models.CASCADE, null=True, blank=True)
 
-    total_points = models.FloatField(null=False)
+    standard_points = models.FloatField(null=False, default=0)
+    bonus_points = models.FloatField(null=False, default=0)
+
+    points_multiplier = models.IntegerField(default=1)
+    is_best_tipp = models.BooleanField(default=False)
+
+    total_points = models.FloatField(null=False, default=0)
+
+    def save(self, *args, **kwargs):
+        #update total points
+        self.total_points = self.points_multiplier * (self.standard_points + self.bonus_points)
+
+        super().save(*args, **kwargs)  # Call the "real" save() method.
 
 class PointAdjustment(models.Model):
     tipper = models.ForeignKey('auth.User', related_name='points_adjustments', on_delete=models.CASCADE, null=False)

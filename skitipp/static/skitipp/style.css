@@ -34,6 +34,28 @@ div.race_card_col {
     border-width: 3px;
 }
 
+.tipp_col tipp_col_podium {
+    display: flex;
+    flex-direction: column;
+}
+
+.tipp_podium_container {
+    display:flex;
+    justify-content: space-between;
+
+}
+
+.tipp_col tipp_col_icons {
+    display: flex;
+    flex-direction: column;
+    margin-left: auto;
+    margin-bottom: auto;
+ }
+
+div.best_tipp::after {
+    content: "👑";
+}
+
 div.place1::before {
     content: "1. ";
   }

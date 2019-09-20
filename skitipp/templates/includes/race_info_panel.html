@@ -7,6 +7,7 @@
 
     <p>
         {{ object.kind }}
+        {% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x {% endif %} 
         
         {% if object.cancelled %} 
             <span class="badge badge-danger">Cancelled</span> 
@@ -15,8 +16,6 @@
         {% else %}
             <span class="badge badge-success">Open</span>
         {% endif %}
-    {% if object.points_multiplier > 1 %} {{ object.points_multiplier }}x 
-    {% endif %} 
     
     </p>
     <p>Race Date (CET): {{ object.race_date|timezone:"Europe/Zurich" }}</p>

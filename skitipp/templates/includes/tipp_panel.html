@@ -1,0 +1,17 @@
+<div class="tipp mytipp rd-flex flex-row">
+    <div class="tipp_podium_container">
+        <div class="tipp_col tipp_col_podium">     
+            {% if tipp.tipper != request.user %}
+                <div class="tipper"> {{ tipp.tipper.username }} </div>
+            {% endif %}
+            <div class="place1"> {{ tipp.place_1 }} </div>
+            <div class="place2"> {{ tipp.place_2}} </div>
+            <div class="place3"> {{ tipp.place_3 }} </div>
+        </div>
+        <div class="tipp_col tipp_col_icons">
+            {% if tipp.tipp_points_tally.is_best_tipp %} <div class="best_tipp"></div> {% endif %}
+        </div>
+    </div>
+    <hr>
+    <div class="dnf"> {{ tipp.dnf }} </div>
+</div>

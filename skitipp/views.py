@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 
 from django.db import models
-from django.db.models import Exists, OuterRef, Sum, Case, CharField, Value, When, Q, F
+from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F
 
 
 from django.http import HttpResponseRedirect
@@ -23,6 +23,8 @@ from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment
 
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
+
+from skitipp import tipp_scorer
 
 import logging
 
@@ -82,10 +84,17 @@ class RaceEventDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(RaceEventDetailView, self).get_context_data(**kwargs)
-        tipps = Tipp.objects.filter(tipper=self.request.user, race_event_id=self.kwargs['pk']).order_by('-created')[:1]
+        tipps = Tipp.objects.filter(
+            tipper=self.request.user, race_event_id=self.kwargs['pk']).annotate(
+            is_best_tipp=F('tipp_points_tally__is_best_tipp')
+        ).order_by('-created')[:1]
+
         if len(tipps):
             context['current_tipp'] = tipps[0]
             print(tipps[0].dnf)
+            print(tipps[0].tipp_points_tally)
+            print(tipps[0].is_best_tipp)
+
         return context
 
 class RaceResultsView(LoginRequiredMixin, DetailView):
@@ -218,18 +227,33 @@ def finalize_race(request, race_id):
     #delete points from this race
     TippPointTally.objects.filter(race_event_id=race_id).delete()
     race_event = RaceEvent.objects.get(pk=race_id)
+    race_event.finished = True
+    race_event.save(update_fields=['finished'])
 
     print("finializing race {}".format(race_event))
 
-    race_tipps = {t.tipper : t for t in race_event.get_last_tipps}
+    race_tipp_tallies = tipp_scorer.score_race(race_event)
+    race_tipp_tallies = { rt.tipper : rt for rt in race_tipp_tallies }
 
-    #tally up the points for the race for each active user
-    for u in User.objects.all():
-        last_tipp = race_tipps.get(u)
-        if last_tipp:
-            user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=last_tipp)
-            user_tally.total_points = int(last_tipp is not None)
-            print(user_tally)
+    #document this
+    users = User.objects.all().annotate(
+        prev_no_tipp_offences=Count("user_points_tally", filter=Q(
+                user_points_tally__race_event__race_date__lt=race_event.race_date,
+                user_points_tally__tipp__isnull=True
+            )
+        )
+    )
+
+    #assign negative points for missed tip
+    for u in users:
+        user_point_tally = race_tipp_tallies.get(u)
+
+        if user_point_tally is None:
+            user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=None)
+            no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
+            user_tally.standard_points = -no_tipp_penalty
+
+
             user_tally.save()
 
     return HttpResponseRedirect(race_event.get_absolute_url())

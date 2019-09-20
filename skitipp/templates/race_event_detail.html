@@ -19,19 +19,13 @@
 <div class="row tipp_list">
     <div class="col">
 
-        <div class="tipp mytipp rd-flex flex-row">
-            {% if current_tipp %}
-                <div>
-                    <div class="place1"> {{ current_tipp.place_1 }} </div>
-                    <div class="place2"> {{ current_tipp.place_2}} </div>
-                    <div class="place3"> {{ current_tipp.place_3 }} </div>
-                    <hr>
-                    <div class="dnf"> {{ current_tipp.dnf }} </div>
-                </div>
-            {% else %}
-            No tip made!
-            {% endif %}
-        </div>
+        {% if current_tipp %}
+            {% include "includes/tipp_panel.html" with tipp=current_tipp %}
+        {% else %}
+            <div class="tipp mytipp rd-flex flex-row">
+                No tip made!
+            </div>
+        {% endif %}
     </div>
 </div>
 {% if not object.cancelled %}
@@ -51,21 +45,12 @@
             <div id="tipps_panel" class="collapse show">
                 {% for tipp in object.get_last_tipps %}
                     {% if tipp.tipper != request.user %}
-                        <div class="tipp rd-flex flex-row">
-                            <div>
-                                <div class="tipper"> {{ tipp.tipper.username }} </div>
-                                <div class="place1"> {{ tipp.place_1 }} </div>
-                                <div class="place2"> {{ tipp.place_2}} </div>
-                                <div class="place3"> {{ tipp.place_3 }} </div>
-                                <div class="dnf"> {{ tipp.dnf }} </div>
-                            </div>
-                        </div>
+                        {% include "includes/tipp_panel.html"  with tipp=tipp  %}
                     {% endif %}
                 {% empty%}
                     <div class="tipp rd-flex flex-row">
                         No other tipps submitted
                     </div>
-
                 {% endfor %}
             </div>
             <div id="results_panel" class="collapse">
