@@ -9,7 +9,7 @@
 </div>
 <hr>
 <div class="row create_tipp row-padding">
-    <div class="col">
+    <div class="col-md-6">
         {% if not object.cancelled and not object.finished %}
         <a href="{{object.tipp_link}}" class="btn btn-secondary">New Tipp</a>
         {% endif %}
@@ -17,7 +17,7 @@
 </div>
 
 <div class="row tipp_list">
-    <div class="col">
+    <div class="col-md-6">
 
         {% if current_tipp %}
             {% include "includes/tipp_panel.html" with tipp=current_tipp %}
@@ -31,16 +31,16 @@
 {% if not object.cancelled %}
     <hr>
     <div class="row view_toggle">
-        <div class="col-6">
+        <div class="col-6 col-md-3">
             <button id="tipps_btn" type="button" class="btn btn-lg btn-block btn-secondary">Tipps</button>
         </div>
-        <div class="col-6">
+        <div class="col-6 col-md-3">
             <button id="results_btn"  type="button" class="btn btn-lg btn-block btn-outline-secondary">Race Results</button>
         </div>
     </div>
     <div class="container tipp_result_accordian">
     <div class="row tipp_list">
-        <div class="col">
+        <div class="col-md-6">
             {% if object.finished %}
             <div id="tipps_panel" class="collapse show">
                 {% for tipp in object.get_last_tipps %}
