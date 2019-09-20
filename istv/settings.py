@@ -30,6 +30,8 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+SECURE_SSL_REDIRECT = True
+
 ALLOWED_HOSTS = ['localhost', 'istv-eu.p7enjpyz3m.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
 
 LOGIN_URL = '/user/login'

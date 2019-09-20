@@ -140,4 +140,3 @@ class PointAdjustment(models.Model):
     def get_absolute_url(self):
         return reverse('point_adjustments')
 
-

@@ -76,3 +76,4 @@ class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = PointAdjustment
         fields = ['tipper', 'reason', 'points', 'preseason']
+
