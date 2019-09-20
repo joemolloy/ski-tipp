@@ -3,6 +3,7 @@ from django import http
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib import messages
 
 from django.db import models
 from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F
@@ -46,6 +47,8 @@ class RaceListView(LoginRequiredMixin, ListView):
     model = RaceEvent
 
     def get_queryset(self):
+
+        #messages.success(self.request, "Welcome to ski-tipp!")
 
         #annotate if tipp was made for this race
         valid_tipp = Tipp.objects.filter(
@@ -157,7 +160,6 @@ def leaderboardDataView(request):
 
         user_race_points = u.user_points_tally
 
-        print(" test" , user_race_points)
         for race in all_races:
             race_points = user_race_points.filter(race_event=race).first()
             if race_points:
@@ -168,9 +170,6 @@ def leaderboardDataView(request):
             user_row['races'].append(total_points)
 
         leaderboard.append(user_row)
-
-    print(race_list)
-    print(leaderboard)
 
     data = { "races" : race_list, "data" : leaderboard }
 
@@ -221,13 +220,25 @@ def update_race(request, race_id):
 
 @staff_member_required
 def finalize_race(request, race_id):
-    #delete points from this race
-    TippPointTally.objects.filter(race_event_id=race_id).delete()
-    race_event = RaceEvent.objects.get(pk=race_id)
+
+    #update race first
+    race_event = fis_connector.get_race_results(race_id)
+
+    if not race_event.start_list.exists():
+        #race results are not published
+        print("race couldn't be finalized as no startlist available")
+        messages.error(request, "Race Results are not available to finalize race")
+
+        return HttpResponseRedirect(race_event.get_absolute_url())
+
+    #results exist, continue with finalizing
     race_event.finished = True
     race_event.save(update_fields=['finished'])
 
+
     print("finializing race {}".format(race_event))
+    #delete points from this race
+    TippPointTally.objects.filter(race_event_id=race_id).delete()
 
     race_tipp_tallies = tipp_scorer.score_race(race_event)
     race_tipp_tallies = { rt.tipper : rt for rt in race_tipp_tallies }
@@ -252,7 +263,8 @@ def finalize_race(request, race_id):
 
 
             user_tally.save()
-
+    
+    messages.success(request, "{} was finalized".format(race_event))
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 class PointAdjustmentListView(CreateView):
