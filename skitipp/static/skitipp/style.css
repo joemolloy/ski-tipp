@@ -72,6 +72,14 @@ div.dnf::before {
     width: 100%;
 }
 
+.table-cell-race.alleine_im_sieg {
+    background-color: lightgreen
+}
+
+.table-cell-race.negative_pts {
+    background-color: lightcoral
+}
+
 .tipp_result_accordian {
     padding-top:10px;
     padding-bottom:30px;

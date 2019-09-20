@@ -147,6 +147,10 @@ class TippPointTally(models.Model):
 
     total_points = models.FloatField(null=False, default=0)
 
+    @property
+    def did_tipp(self):
+        return self.tipp is not None
+
     def save(self, *args, **kwargs):
         #update total points
         self.total_points = self.points_multiplier * (self.standard_points + self.bonus_points)

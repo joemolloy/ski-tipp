@@ -6,7 +6,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 
 from django.db import models
-from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F
+from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery
 
 
 from django.http import HttpResponseRedirect
@@ -128,14 +128,14 @@ from collections import defaultdict, OrderedDict
 @login_required
 def leaderboardDataView(request):
 
-    all_races = RaceEvent.objects.all().order_by('race_date')
+    best_tips = TippPointTally.objects.filter(race_event=OuterRef('pk')).filter(is_best_tipp=True)
+
+    all_races = RaceEvent.objects.all().annotate(
+        alleine=Subquery(best_tips.values('tipper__username')[:1])
+    ).order_by('race_date')
+
     ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points'))
-    
-    #todo: remove
-    for r in all_races:
-        if 'Men' in r.kind:
-            r.kind = r.kind.split(' ', 1)[1]
-            r.save()
+
 
     adjustments = User.objects.all().annotate(
         all_adj=Sum('points_adjustments__points'),
@@ -146,7 +146,7 @@ def leaderboardDataView(request):
 
     #tally up the points for the race for each active user
 
-    race_list = [ model_to_dict(r, fields=['fis_id', 'location', 'kind', 'short_name']) for r in all_races ]
+    race_list =  list(all_races.values())
     leaderboard = []
 
     for u in ranked_users:
@@ -168,13 +168,16 @@ def leaderboardDataView(request):
         user_race_points = u.user_points_tally
 
         for race in all_races:
+            total_points = None
+            did_tipp = None
             race_points = user_race_points.filter(race_event=race).first()
             if race_points:
                 total_points = race_points.total_points
+                did_tipp = race_points.did_tipp
                 #total_points = int(total_points) if total_points.is_integer() else total_points
             else:
                 total_points = None
-            user_row['races'].append(total_points)
+            user_row['races'].append({'points': total_points, 'did_tipp': did_tipp })
 
         leaderboard.append(user_row)
 
