@@ -71,7 +71,7 @@ class RaceEvent(models.Model):
         last_tipps = []
         for u in User.objects.all().prefetch_related('tipps'):
             user_last_tipp = u.tipps.filter(
-                race_event=self, created__lt=self.race_date
+                race_event=self, #created__lt=self.race_date
             ).order_by("-created").first()
 
             if user_last_tipp:

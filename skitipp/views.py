@@ -264,7 +264,7 @@ def finalize_race(request, race_id):
 
     print("finializing race {}".format(race_event))
     #delete points from this race
-    race_event.tipp_points_tally.delete()
+    race_event.race_points_tally.all().delete()
     #score race
     tipp_scorer.score_race(race_event)
     
