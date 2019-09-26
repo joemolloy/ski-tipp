@@ -17,10 +17,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponseRedirect
 
+from django.contrib.auth import views as auth_views
+
 from skitipp.views import RaceListView, AboutView
+
+from skitipp.forms import CustomLoginForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('user/login/', auth_views.LoginView.as_view(authentication_form=CustomLoginForm)),
     path('user/', include('django.contrib.auth.urls')), # new
     path('app/', include('skitipp.urls')),
     path('', RaceListView.as_view(), name='index'),

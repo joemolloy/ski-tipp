@@ -78,3 +78,6 @@ class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):
         model = PointAdjustment
         fields = ['tipper', 'reason', 'points', 'preseason']
 
+from django.contrib.auth.forms import AuthenticationForm
+class CustomLoginForm(BootstrapFormMixin, AuthenticationForm):
+    pass
