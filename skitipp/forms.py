@@ -41,6 +41,13 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
 
         fields = ['race_event','tipper', 'place_1','place_2','place_3','dnf','comment']
 
+        labels = {
+                    'place_1': '1.',
+                    'place_2': '2.',
+                    'place_3': '3.',
+                    'comment': 'Note:'
+                }
+
         widgets = {
             'race_event': forms.HiddenInput(),
             'tipper': forms.HiddenInput(),
@@ -48,7 +55,10 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
             'place_2': autocomplete.ModelSelect2(url='racer-autocomplete'),
             'place_3': autocomplete.ModelSelect2(url='racer-autocomplete'),
             'dnf': autocomplete.ModelSelect2(url='racer-autocomplete', forward=(forward.Const('dnf', 'racer_type'),)),
+            'comment': forms.Textarea(attrs={'rows':4, 'cols':15}),
+
         }
+
 
     def __init__(self, *args, **kwargs):
 
@@ -84,7 +94,7 @@ class CustomLoginForm(BootstrapFormMixin, AuthenticationForm):
     
     remember_me = forms.BooleanField(label="Remember Me?", required=False)
 
-    
+
 
 class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
 
