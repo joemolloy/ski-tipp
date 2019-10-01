@@ -297,3 +297,69 @@ def deletePointAdjustment(request, adjustment_id):
 
 class AboutView(TemplateView):
     template_name = "about.html"
+
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import logout, authenticate, login
+
+from django.contrib import auth
+
+def login_view(request):
+
+    form = CustomLoginForm
+
+    if request.user.is_authenticated:
+        return redirect('index')
+    
+    if request.method == "POST":
+
+        logging.info(request.POST)
+
+        # here you get the post request username and password
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
+
+        # authentication of the user, to check if it's active or None
+        user = auth.authenticate(username=username, password=password)
+
+        if user is not None:
+            logging.info("user found" + str(user))
+            if user.is_active:
+                # this is where the user login actually happens, before this the user
+                # is not logged in.
+                auth.login(request, user)
+                if request.POST.get('remember_me'):
+                    request.session.set_expiry(1209600) # 2 weeks
+
+                return redirect("index")
+            else:
+                messages.error(request, "Your account is not yet active" )
+        else:
+            messages.error(request, "Username or password incorrect" )
+
+    return render(request = request,
+                  template_name = "registration/login.html",
+                  context={"form":form})
+
+def register(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.is_active = False
+            user.save()
+
+            username = form.cleaned_data.get('username')
+            logging.info("User created: " + str(user))
+            welcome_text = "Hi {}, your registration was successful, an admin must activate your account before you can login"
+            messages.info(request, welcome_text.format(username) )
+       
+            return redirect("login")
+
+        else:
+            logging.error("User not valid")
+            messages.error(request, "Registration unsuccessful" )
+
+    form = CustomSignUpForm
+    return render(request = request,
+                  template_name = "registration/sign_up.html",
+                  context={"form":form})

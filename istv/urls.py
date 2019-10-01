@@ -19,13 +19,15 @@ from django.http import HttpResponseRedirect
 
 from django.contrib.auth import views as auth_views
 
-from skitipp.views import RaceListView, AboutView
+from skitipp.views import RaceListView, AboutView, register, login_view
 
 from skitipp.forms import CustomLoginForm
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('user/login/', auth_views.LoginView.as_view(authentication_form=CustomLoginForm)),
+    path('user/login/', login_view, name='login'),
+    path("user/signup", register, name="signup"),
+
     path('user/', include('django.contrib.auth.urls')), # new
     path('app/', include('skitipp.urls')),
     path('', RaceListView.as_view(), name='index'),

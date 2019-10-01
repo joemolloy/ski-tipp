@@ -78,6 +78,23 @@ class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):
         model = PointAdjustment
         fields = ['tipper', 'reason', 'points', 'preseason']
 
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.models import User
 class CustomLoginForm(BootstrapFormMixin, AuthenticationForm):
-    pass
+    
+    remember_me = forms.BooleanField(label="Remember Me?", required=False)
+
+    
+
+class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2")
+
+    def save(self, commit=True):
+        user = super(CustomSignUpForm, self).save(commit=False)
+        user.is_active = False
+        if commit:
+            user.save()
+        return user
