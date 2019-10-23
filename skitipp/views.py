@@ -33,9 +33,11 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
         field = self.forwarded.get('racer_type', None)
         if field == 'dnf':
-            qs = Racer.objects.all()
+            qs = Racer.objects.all().order_by('name')
         else:
-            qs = Racer.objects.competitors()
+            qs = Racer.objects.competitors().order_by('name')
+            for q in qs:
+                print (q.fis_id, q.name, q.active)
 
         if self.q:
             qs = qs.filter(name__icontains=self.q)
@@ -227,6 +229,12 @@ def upload_race(request):
 def update_race(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
     return HttpResponseRedirect(race_event.get_absolute_url())
+
+@staff_member_required
+def update_wc_start_list(request):
+    fis_connector.update_ws_start_list()
+    messages.info(request, "Racers updated from FIS WC Startlist")
+    return HttpResponseRedirect(reverse('race_list'))
 
 @staff_member_required
 def rescore_all_races(request):

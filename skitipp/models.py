@@ -10,6 +10,8 @@ class RacerQuerySet(models.QuerySet):
 class Racer(models.Model):
     fis_id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=100)
+    active = models.BooleanField(default=True)
+    rank = models.IntegerField(null=True, blank=True)
 
     objects = RacerQuerySet.as_manager()
 

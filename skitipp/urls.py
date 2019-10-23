@@ -23,6 +23,7 @@ urlpatterns = [
     path('point_adjustments/', views.PointAdjustmentListView.as_view(), name='point_adjustments'),
     path('point_adjustments/<int:adjustment_id>/delete/', views.deletePointAdjustment, name='delete_point_adjustment'),
 
+    path('update_racers/', views.update_wc_start_list, name='update_racers'),
 
     path(
         r'racer-autocomplete/',

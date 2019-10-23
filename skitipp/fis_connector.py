@@ -3,6 +3,7 @@ import requests
 from datetime import datetime
 from dateutil.parser import parse
 import dateutil.parser as dp
+import re
 
 from skitipp.models import RaceEvent, Racer, RaceCompetitor
 
@@ -59,6 +60,32 @@ def extract_race_info(tree, fis_race_id):
 
 def get_results_html_table(tree):
     return tree.xpath('//div[@id="events-info-results"]')[0]
+
+def update_ws_start_list():
+    fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2020&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
+    p = re.compile("competitorid=(\d+)")
+
+    page = requests.get(fis_base_link)
+    tree = html.fromstring(page.content)
+
+    racer_links = tree.xpath('//div[@id="cupstandingsdata"]//a/@href')
+    racer_names = [str(s).strip() for s in tree.xpath('//div[@id="cupstandingsdata"]//a/div[1]/div[1]/text()')]
+
+    #set all racers to inactive
+    Racer.objects.update(active=False, rank=None)
+
+    for i, link in enumerate(racer_links):
+        racer_page = requests.get(link)
+        racer_tree = html.fromstring(racer_page.content)
+        fis_id = int(racer_tree.xpath('//li[@id="FIS Code"]/span[@class="profile-info__value"]/text()')[0])
+        racer_name = racer_names[i]
+        print (i, fis_id, racer_name)
+
+        #add new racers and set to active
+        obj, created = Racer.objects.update_or_create(
+            fis_id=fis_id, defaults=dict(name=racer_name, active=True, rank=i),
+        )
+
 
 def get_finishers(tree, race_event):
     #completed racers
