@@ -6,7 +6,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 
 from django.db import models
-from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery
+from django.db.models import BooleanField
+from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery, Value
 
 
 from django.http import HttpResponseRedirect
@@ -33,11 +34,11 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
         field = self.forwarded.get('racer_type', None)
         if field == 'dnf':
-            qs = Racer.objects.all().order_by('name')
+            qs = Racer.objects.all().annotate(
+                is_dnf=Case(When(fis_id=0, then=Value(True)), default=Value(False), output_field=BooleanField())
+            ).order_by('-is_dnf', 'name')
         else:
             qs = Racer.objects.competitors().order_by('name')
-            for q in qs:
-                print (q.fis_id, q.name, q.active)
 
         if self.q:
             qs = qs.filter(name__icontains=self.q)

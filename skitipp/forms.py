@@ -6,6 +6,7 @@ from dal import forward
 from dal import autocomplete
 
 from .models import RaceEvent, Tipp, PointAdjustment
+import logging
 
 class BootstrapFormMixin(object):
 
@@ -73,11 +74,12 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
         dnf = cleaned_data.get("dnf")
 
         race_event = cleaned_data.get("race_event")
-        
+                
         if race_event.dnf_eligible and dnf is None:
             raise forms.ValidationError(
                     "Please select Alle im Ziel or a DNF Racer"
                 )
+        return dnf
 
         
 class UploadRaceForm(BootstrapFormMixin, forms.Form):

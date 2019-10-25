@@ -23,7 +23,7 @@ class UserCreateForm(UserCreationForm):
             raise forms.ValidationError(
                     "Please provide an email address"
                 )
-
+        return email
 
 class UserAdmin(UserAdmin):
     add_form = UserCreateForm
