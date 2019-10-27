@@ -136,6 +136,10 @@ class Tipp(models.Model):
     def alle_im_ziel(self):
         return self.dnf_id == 0
 
+    @property
+    def created_on_race_day(self):
+        return self.created.date() == self.race_event.race_date.date()
+
 class TippPointTally(models.Model):
     tipper = models.ForeignKey('auth.User', related_name='user_points_tally', on_delete=models.CASCADE)
     race_event = models.ForeignKey('RaceEvent', related_name='race_points_tally', on_delete=models.CASCADE)
