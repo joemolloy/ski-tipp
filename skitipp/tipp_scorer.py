@@ -122,9 +122,9 @@ def dnf_points(tipp, race_event):
 
 def ranking_bonus_points(number_correct):
     points = 0
-    if number_correct == 1:
+    if number_correct >= 1:
         points += 1
-    if number_correct == 2:
+    if number_correct >= 2:
         points += 0.5
     if number_correct == 3:
         points += 1
