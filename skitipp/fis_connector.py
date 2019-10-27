@@ -151,6 +151,9 @@ def get_dnf_racers(tree, race_event):
     #print("Number of dnf racers: ", len(dnf_athletes))
     return dnf_athletes
 
+def results_published(tree):
+    table_header = tree.xpath('.//div[@id="ajx_results"]//h3')[0].text
+    return table_header == 'OFFICIAL RESULTS'
 
 def get_race_results(fis_race_id):
 
@@ -160,11 +163,15 @@ def get_race_results(fis_race_id):
     tree = html.fromstring(page.content)
 
     race_event = extract_race_info(tree, fis_race_id)
-    finishers = get_finishers(tree, race_event)
-    dnfs = get_dnf_racers(tree, race_event)
 
-    print("Number of completed racers: ", len(finishers))
-    print("Number of dnf racers: ", len(dnfs))
+    if results_published(tree):
+        finishers = get_finishers(tree, race_event)
+        dnfs = get_dnf_racers(tree, race_event)
+
+        print("Number of completed racers: ", len(finishers))
+        print("Number of dnf racers: ", len(dnfs))
+    else:
+        print("Official results not yet published")
 
     return race_event
 

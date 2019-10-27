@@ -51,8 +51,12 @@ div.race_card_col {
     margin-bottom: auto;
  }
 
-div.best_tipp::after {
-    content: "👑";
+ dv.best_tipp {
+    text-align: right;
+ }
+
+div.tipper::after {
+    content: "  👑";
 }
 
 div.place1::before {
