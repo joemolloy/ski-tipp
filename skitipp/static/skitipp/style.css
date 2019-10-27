@@ -55,10 +55,6 @@ div.race_card_col {
     text-align: right;
  }
 
-div.tipper::after {
-    content: "  👑";
-}
-
 div.place1::before {
     content: "1. ";
   }
