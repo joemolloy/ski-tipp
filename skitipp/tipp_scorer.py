@@ -18,13 +18,13 @@ def score_race(race_event):
             best_tippers[0].is_best_tipp = True
             best_tippers[0].save()
 
-    best_tipper_bonus(race_event, user_tallies)
+    apply_missed_tipp_penalties(race_event, user_tallies)
 
-def best_tipper_bonus(race_event, user_tallies):
-    race_tipp_tallies = { rt.tipper : rt for rt in user_tallies }
+def apply_missed_tipp_penalties(race_event, user_tallies):
+    tippers = [rt.tipper.id for rt in user_tallies]
 
-    #document this
-    users = User.objects.all().annotate(
+    #get the count of missed races for each user who didnt tip, before to the current race (race_event)
+    non_tippers = User.objects.exclude(id__in=tippers).annotate(
         prev_no_tipp_offences=Count("user_points_tally", filter=Q(
                 user_points_tally__race_event__race_date__lt=race_event.race_date,
                 user_points_tally__tipp__isnull=True
@@ -33,15 +33,11 @@ def best_tipper_bonus(race_event, user_tallies):
     )
 
     #assign negative points for missed tip
-    for u in users:
-        user_point_tally = race_tipp_tallies.get(u)
-
-        if user_point_tally is None:
-            user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=None)
-            no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
-            user_tally.standard_points = -no_tipp_penalty
-
-            user_tally.save()
+    for u in non_tippers:
+        user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=None)
+        no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
+        user_tally.standard_points = -no_tipp_penalty
+        user_tally.save()
 
 def score_tipp(tipp):
     race_event = tipp.race_event
@@ -122,27 +118,29 @@ def dnf_points(tipp, race_event):
 
     return points
 
-def ranking_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3):
-    number_correct = int(tipp_on_podium1) + int(tipp_on_podium2) + int(tipp_on_podium3)
-    points = 0
-    if number_correct == 2:
-        points = 0.5
-    if number_correct == 3:
-        points = 1
+def ranking_bonus_points(correct1, correct2, correct3):
+    return int(correct1) + int(correct2) + int(correct3)
 
-    return points
+def podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3):
+    number_correct = int(tipp_on_podium1) + int(tipp_on_podium2) + int(tipp_on_podium3)
+
+    if number_correct == 2:
+        return 0.5
+    elif number_correct == 3:
+        return 1
+    else:
+        return 0
 
 def racer_points(tipp, race_event):
     points1, tipp_on_podium1, correct1 = podium_points(tipp.place_1, 1, race_event)
     points2, tipp_on_podium2, correct2 = podium_points(tipp.place_2, 2, race_event)
     points3, tipp_on_podium3, correct3 = podium_points(tipp.place_3, 3, race_event)
 
-
     standard_points = points1 + points2 + points3
     
     bonus_points = 0
-    bonus_points += int(correct1) + int(correct2) + int(correct3) #correct ranking 
-    bonus_points += ranking_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3) #bonus points for multiple correct
+    bonus_points += ranking_bonus_points(correct1, correct2, correct3) #correct ranking 
+    bonus_points += podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3) #bonus points for multiple correct
     bonus_points += dnf_points(tipp, race_event) #dnf bonus points
 
     print ("{} race points: sp: {}, bp: {}".format(tipp.tipper, standard_points, bonus_points))

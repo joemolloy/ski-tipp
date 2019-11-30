@@ -32,8 +32,8 @@ RACE_TYPES = {
 class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)
     
-    location = models.CharField(max_length=50)
-    kind = models.CharField(max_length=20) 
+    location = models.CharField(max_length=200)
+    kind = models.CharField(max_length=200)
     race_date = models.DateTimeField()
 
     cancelled = models.BooleanField(default=False)

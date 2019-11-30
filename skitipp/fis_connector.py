@@ -15,14 +15,14 @@ def create_short_name(race_name, race_kind):
         "Giant Slalom" : "GS",
         "Downhill" : "DH",
         "Super G": "SG",
-        "Alpine Combined" : "AC",
+        "Alpine combined" : "AC",
         "City Event" : "CE",
         "Parallel Giant Slalom" : "PGS",
         "Parallel Slalom" : "PSL"
     }
     abrv_kind = race_kind_mapping.get(race_kind, "??")
 
-    return abrv_name + "_" + abrv_kind
+    return abrv_name.strip() + "_" + abrv_kind
 
 def extract_race_info(tree, fis_race_id):
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
