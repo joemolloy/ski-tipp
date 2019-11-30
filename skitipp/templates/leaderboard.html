@@ -28,6 +28,7 @@
 
 var leaderboard_table = null;
 var alleine_map = []
+var no_tipp_cells = []
 
 $(document).ready(function() {
     $.ajax({
@@ -47,7 +48,6 @@ $(document).ready(function() {
 
 
                 var cell_def_targets = []
-                var no_tipp_cells = []
 
                 var RACE_START_COL = 4
 
@@ -89,26 +89,31 @@ $(document).ready(function() {
                         rightColumns: 0
                     },
                     columnDefs: [race_cell_def],
-                    order: [[ 1, 'desc' ]]
-                });
+                    order: [[ 1, 'desc' ]],
+                    drawCallback: function( settings ) {
 
-                $.each(alleine_map, function(i, val) {
-                    var row_index = leaderboard_table.DataTable().column('tipper:name').data().indexOf(val.alleine)
-                    var cell = leaderboard_table.DataTable().cell( row_index, val.column+':name' ).node()
-                    $(cell).addClass('alleine_im_sieg')
+                        var api = this.api();
 
-                })
+                        $.each(alleine_map, function(i, val) {
+                            var row_index = api.column('tipper:name').data().indexOf(val.alleine)
+                            var cell = api.cell( ':eq('+row_index+')', val.column+':name' ).node()
+                            $(cell).addClass('alleine_im_sieg')
 
-                //add negative classes
-                $.each(no_tipp_cells, function() {
-                    var cell = leaderboard_table.DataTable().cell( this.row , this.col ).node()
-                    $(cell).addClass('negative_pts')
+                        })
+
+                        //add negative classes
+                        $.each(no_tipp_cells, function() {
+                            var cell = api.cell( this.row , this.col ).node()
+                            $(cell).addClass('negative_pts')
+                        })
+                    }
                 });
 
             },
             "dataType": "json"
-        });
+    });
 });
+
 </script>
 
 {% endblock %}
