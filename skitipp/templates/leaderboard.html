@@ -93,7 +93,7 @@ $(document).ready(function() {
                 });
 
                 $.each(alleine_map, function(i, val) {
-                    var row_index = leaderboard_table.DataTable().column('tipper:name').data().indexOf('joemolloy')
+                    var row_index = leaderboard_table.DataTable().column('tipper:name').data().indexOf(val.alleine)
                     var cell = leaderboard_table.DataTable().cell( row_index, val.column+':name' ).node()
                     $(cell).addClass('alleine_im_sieg')
 

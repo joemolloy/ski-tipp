@@ -105,7 +105,7 @@ def podium_points(racer, position, race_event):
         if racer_start.rank == position:
             correct_rank = True
 
-        print ("{} - p{}: {}x, {}, {}".format(racer, position, start_group_multiplier, points, correct_rank))
+        print ("{} ({}) - p{}: {}x, {}, {}".format(racer, start_number, position, start_group_multiplier, points, correct_rank))
 
     return points, tipp_on_podium, correct_rank
 
@@ -138,12 +138,13 @@ def racer_points(tipp, race_event):
 
     standard_points = points1 + points2 + points3
     
-    bonus_points = 0
-    bonus_points += ranking_bonus_points(correct1, correct2, correct3) #correct ranking 
-    bonus_points += podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3) #bonus points for multiple correct
-    bonus_points += dnf_points(tipp, race_event) #dnf bonus points
 
-    print ("{} race points: sp: {}, bp: {}".format(tipp.tipper, standard_points, bonus_points))
+    ranking_bonus = ranking_bonus_points(correct1, correct2, correct3) #correct ranking 
+    podium_bonus = podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3) #bonus points for multiple correct
+    dnf_bonus = dnf_points(tipp, race_event) #dnf bonus points
+    bonus_points = ranking_bonus + podium_bonus + dnf_bonus
+
+    print ("{} race points: sp: {}, bp: ({},{},{})".format(tipp.tipper, standard_points, ranking_bonus, podium_bonus, dnf_bonus))
 
     return standard_points, bonus_points
 
