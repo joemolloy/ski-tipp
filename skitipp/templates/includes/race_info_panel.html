@@ -11,6 +11,8 @@
         
         {% if object.cancelled %} 
             <span class="badge badge-danger">Cancelled</span> 
+        {% elif object.in_progress %}
+            <span class="badge badge-warning">In Progress</span> 
         {% elif object.finished %}
             <span class="badge badge-primary">Finished</span>
         {% else %}
@@ -26,8 +28,12 @@
     {% if user.is_staff %} 
         <div class="btn-group" role="group">
             <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit</a>
-            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Update from FIS</a>
-            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Finalize</a> 
+            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Update details from FIS</a>
+
+            {% if not object.finished and not object.in_progress %}
+                <a href="{% url 'publish_tipps' object.pk %}" class="btn btn-secondary">Publish Tipps</a>
+            {% endif %}
+            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Score Race</a> 
         </div>
     {% endif %}
 

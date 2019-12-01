@@ -13,7 +13,7 @@ urlpatterns = [
     
     path('race/create/', views.upload_race, name='upload_race'),
     path('race/<int:race_id>/update/', views.update_race, name='update_race'),
-
+    path('race/<int:race_id>/publish/', views.publish_tipps, name='publish_tipps'),
     path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
     path('leaderboard/rescore_races/', views.rescore_all_races, name='rescore_all_races'),
 

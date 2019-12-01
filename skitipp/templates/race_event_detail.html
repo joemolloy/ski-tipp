@@ -41,7 +41,7 @@
     <div class="container tipp_result_accordian">
     <div class="row tipp_list">
         <div class="col-md-6">
-            {% if object.finished %}
+            {% if object.finished or object.in_progress %}
             <div id="tipps_panel" class="collapse show">
                 {% for tipp in object.get_last_tipps %}
                     {% if tipp.tipper != request.user %}
@@ -53,6 +53,8 @@
                     </div>
                 {% endfor %}
             </div>
+            {% endif %}
+            {% if object.finished %}
             <div id="results_panel" class="collapse">
                 <div class="podium">
                         <h3>Podium</h3>
@@ -75,7 +77,7 @@
 
             {% else %}
             <div class="tipp rd-flex flex-row">
-                Race still open!
+                Race not finished!
             </div>
             {% endif %}
         </div>

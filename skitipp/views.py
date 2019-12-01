@@ -63,7 +63,7 @@ class RaceListView(LoginRequiredMixin, ListView):
             user_has_tipped=Exists(valid_tipp),
             race_status=Case(
                 When(finished=True, then=Value('Finished')),
-                default=Value('Upcoming'),
+                default=Value('Upcoming & In Progress'),
                 output_field=CharField(),
             )
         ).order_by('-race_status', 'race_date')
@@ -138,7 +138,6 @@ def leaderboardDataView(request):
     ).order_by('race_date')
 
     ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points'))
-
 
     adjustments = User.objects.all().annotate(
         all_adj=Sum('points_adjustments__points'),
@@ -232,6 +231,16 @@ def update_race(request, race_id):
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 @staff_member_required
+def publish_tipps(request, race_id):
+    race_event = get_object_or_404(RaceEvent, pk=race_id)
+    race_event.in_progress = True
+    race_event.finished = False
+    race_event.save()
+    messages.info(request, "Tipps for %s have been published, tipping is now closed." % race_event)
+    return HttpResponseRedirect(race_event.get_absolute_url())
+
+
+@staff_member_required
 def update_wc_start_list(request):
     fis_connector.update_ws_start_list()
     messages.info(request, "Racers updated from FIS WC Startlist")
@@ -268,8 +277,9 @@ def finalize_race(request, race_id):
         return HttpResponseRedirect(race_event.get_absolute_url())
 
     #results exist, continue with finalizing
+    race_event.in_progress = False
     race_event.finished = True
-    race_event.save(update_fields=['finished'])
+    race_event.save(update_fields=['finished', 'in_progress'])
 
     print("finializing race {}".format(race_event))
     #delete points from this race

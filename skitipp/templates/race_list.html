@@ -32,6 +32,8 @@
                     <div class="race_date mt-auto mr-auto">
                         {% if race_event.cancelled %} 
                            <span class="badge badge-danger"> {% trans 'cancelled'%} </span>
+                        {% elif race_event.in_progress %}
+                            <span class="badge badge-warning">{% trans 'in progress' %}</span> 
                         {% elif race_event.user_has_tipped %} 
                             <span class="badge badge-success"> {% trans 'tipped'%} </span>
                         {% else %}

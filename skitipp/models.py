@@ -43,6 +43,7 @@ class RaceEvent(models.Model):
     race_date = models.DateTimeField()
 
     cancelled = models.BooleanField(default=False)
+    in_progress = models.BooleanField(default=False)
     finished = models.BooleanField(default=False)
     points_multiplier = models.IntegerField(default=1)
 
