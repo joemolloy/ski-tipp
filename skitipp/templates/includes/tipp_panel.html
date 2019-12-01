@@ -20,7 +20,9 @@
             </div>
             <div class="tipp_score_expander">
                 <p>
-                    <a class="btn btn-link" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+                    <a class="btn btn-link" data-toggle="collapse" 
+                        href="#tipp_details_{{ tipp.tipper.username }}" role="button" aria-expanded="false" 
+                        aria-controls="tipp_details_{{ tipp.tipper.username }}">
                         🔎
                     </a>
                 </p>
@@ -33,7 +35,7 @@
     {% endif %}
 
     {% if tipp.tipp_points_tally %}
-    <div class="collapse" id="collapseExample">
+    <div class="collapse" id="tipp_details_{{ tipp.tipper.username }}">
         <div class="card card-body tip_score">
                 <table class="tipp_racer_details">
                 <tr>
