@@ -12,15 +12,61 @@
             <div class="dnf"> {{ tipp.dnf }} </div>
         </div>
         <div class="tipp_col tipp_col_icons">
-        <div class="tipp_date">  
-            {% if tipp.created_on_race_day %}
-                {{ tipp.created|time:"H:i" }} | 
-            {% endif %}
-            {{ tipp.created|date:"d.m.y" }} </div>
+            <div class="tipp_date">  
+                {% if tipp.created_on_race_day %}
+                    {{ tipp.created|time:"H:i" }} | 
+                {% endif %}
+                {{ tipp.created|date:"d.m.y" }} 
+            </div>
+            <div class="tipp_score_expander">
+                <p>
+                    <a class="btn btn-link" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+                        🔎
+                    </a>
+                </p>
+            </div>
         </div>
     </div>
     {% if tipp.comment %}
         <hr>
         <div class="comment"> {{ tipp.comment }} </div>
+    {% endif %}
+
+    {% if tipp.tipp_points_tally %}
+    <div class="collapse" id="collapseExample">
+        <div class="card card-body tip_score">
+                <table class="tipp_racer_details">
+                <tr>
+                <th>Racer</th> <th>Bib</th>
+                <th class="details_center">x</th> 
+                <th class="details_center">Pod Pts.</th> 
+                <th>Rank</th>
+                <th>Correct?</th>
+                </tr>
+
+                {% for r1 in tipp.breakdown.racers %}
+                    <tr>
+                    <td>{{ r1.name }}</td>
+                    <td class="details_center"> {{ r1.bib }}</td>
+                    <td class="details_center">{{ r1.mul }}x</td> 
+                    <td class="details_center"><b>{{ r1.pod_p }}</b></td>
+                    <td class="details_center">{{ r1.rank }}</td>
+                    <td>{{ r1.rang_correct }}</td>
+                    </tr>
+                {% endfor %}
+                </table>
+                <hr /   >
+                <p><b> Podium Bonus: </b> {{ tipp.breakdown.bonus.podium_bonus }} </p>
+                <p><b> Rank Bonus: </b> {{ tipp.breakdown.bonus.ranking_bonus }} </p>
+                <p><b> Dnf Bonus: </b> {{ tipp.breakdown.bonus.dnf_bonus }} </p>
+                {% if  tipp.tipp_points_tally.is_best_tipp %} 
+                    <p><b> Alleine im Sieg: </b> {{ tipp.tipp_points_tally.is_best_tipp }} (+1)</p>
+                {% endif %}
+                <p><b> Race Multiplier: </b> {{ tipp.tipp_points_tally.points_multiplier }}x </p>
+                <hr />
+                <p><b> Total Points: </b> {{ tipp.tipp_points_tally.total_points }}</p>
+
+        </div>
+    </div>
     {% endif %}
 </div>

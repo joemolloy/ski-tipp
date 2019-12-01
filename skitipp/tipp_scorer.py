@@ -1,4 +1,4 @@
-from skitipp.models import RaceEvent, Racer, RaceCompetitor, Tipp, TippPointTally
+import skitipp.models as m
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 
@@ -34,7 +34,7 @@ def apply_missed_tipp_penalties(race_event, user_tallies):
 
     #assign negative points for missed tip
     for u in non_tippers:
-        user_tally = TippPointTally(tipper=u, race_event=race_event, tipp=None)
+        user_tally = m.TippPointTally(tipper=u, race_event=race_event, tipp=None)
         no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
         user_tally.standard_points = -no_tipp_penalty
         user_tally.save()
@@ -45,9 +45,9 @@ def score_tipp(tipp):
 
     print("scoring race {} for {}".format(race_event, tipper))
 
-    standard_points, bonus_points = racer_points(tipp, race_event)
+    standard_points, bonus_points, details = racer_points(tipp)
 
-    user_tally = TippPointTally(tipper=tipper, race_event=race_event, tipp=tipp)
+    user_tally = m.TippPointTally(tipper=tipper, race_event=race_event, tipp=tipp)
 
     #race multiplier
     user_tally.points_multiplier = race_event.points_multiplier
@@ -92,10 +92,14 @@ def podium_points(racer, position, race_event):
     points = 0
     tipp_on_podium = False
     correct_rank = False
+    start_group_multiplier = 1
+    start_number = 0
+    rank = 0
 
     racer_start = race_event.podium.filter(racer=racer).first()
     if racer_start:
         start_number = racer_start.start_number
+        rank = racer_start.rank
         start_group, start_group_multiplier = determine_start_group(race_event, start_number)
 
         if racer_start.rank <= 3:
@@ -105,9 +109,9 @@ def podium_points(racer, position, race_event):
         if racer_start.rank == position:
             correct_rank = True
 
-        print ("{} ({}) - p{}: {}x, {}, {}".format(racer, start_number, position, start_group_multiplier, points, correct_rank))
+        print ("{} ({}) - p{}: {}x, {}, {}".format(racer, start_number, position, start_group_multiplier, points, rank))
 
-    return points, tipp_on_podium, correct_rank
+    return start_number, start_group_multiplier, points, tipp_on_podium, rank, correct_rank
 
 def dnf_points(tipp, race_event):
     points = 0
@@ -131,13 +135,15 @@ def podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3):
     else:
         return 0
 
-def racer_points(tipp, race_event):
-    points1, tipp_on_podium1, correct1 = podium_points(tipp.place_1, 1, race_event)
-    points2, tipp_on_podium2, correct2 = podium_points(tipp.place_2, 2, race_event)
-    points3, tipp_on_podium3, correct3 = podium_points(tipp.place_3, 3, race_event)
+def racer_points(tipp):
+
+    race_event = tipp.race_event
+
+    bib1, mul1, points1, tipp_on_podium1, rank1, correct1 = podium_points(tipp.place_1, 1, race_event)
+    bib2, mul2, points2, tipp_on_podium2, rank2, correct2 = podium_points(tipp.place_2, 2, race_event)
+    bib3, mul3, points3, tipp_on_podium3, rank3, correct3 = podium_points(tipp.place_3, 3, race_event)
 
     standard_points = points1 + points2 + points3
-    
 
     ranking_bonus = ranking_bonus_points(correct1, correct2, correct3) #correct ranking 
     podium_bonus = podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3) #bonus points for multiple correct
@@ -146,6 +152,28 @@ def racer_points(tipp, race_event):
 
     print ("{} race points: sp: {}, bp: ({},{},{})".format(tipp.tipper, standard_points, ranking_bonus, podium_bonus, dnf_bonus))
 
-    return standard_points, bonus_points
+    details = dict(
+        racers = [
+            dict(id=1, name=tipp.place_1.lname, 
+                bib=bib1 if bib1 else '-', 
+                rank=rank1 if rank1 else '-', 
+                mul=mul1, pod_p=points1, rang_correct=correct1),
+            dict(id=2, name=tipp.place_2.lname, 
+                bib=bib2 if bib2 else '-', 
+                rank=rank2 if rank2 else '-', 
+                mul=mul2, pod_p=points2, rang_correct=correct2),
+            dict(id=3, name=tipp.place_3.lname, 
+                bib=bib3 if bib3 else '-', 
+                rank=rank3 if rank3 else '-', 
+                mul=mul3, pod_p=points3, rang_correct=correct3),
+        ],
+        bonus  = dict(podium_bonus=podium_bonus, ranking_bonus=ranking_bonus, dnf_bonus=dnf_bonus)
+    )
+
+    return standard_points, bonus_points, details
 
 
+def get_tipp_breakdown(tipp):
+    standard_points, bonus_points, details = racer_points(tipp)
+
+    return details

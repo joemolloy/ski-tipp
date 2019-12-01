@@ -44,14 +44,33 @@ div.race_card_col {
 
 }
 
-.tipp_col tipp_col_icons {
+.tipp_col.tipp_col_icons {
     display: flex;
     flex-direction: column;
-    margin-left: auto;
-    margin-bottom: auto;
+    justify-content: space-between;
  }
 
- dv.best_tipp {
+div.tipp_score_expander {
+    margin-top: auto;
+    display: block;
+    text-align: right;
+    margin-bottom: 0px;
+}
+
+div.tipp_score_expander p {
+    margin:0px;
+}
+
+div.tipp_score_expander p a {
+    padding-right:0px;
+    padding-bottom:0px;
+}
+
+.details_center {
+    text-align:center;
+}
+
+div.best_tipp {
     text-align: right;
  }
 

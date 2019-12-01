@@ -3,6 +3,8 @@ from django.db.models import OuterRef, Subquery
 from django.contrib.auth.models import User
 from django.urls import reverse
 
+import skitipp.tipp_scorer as tipp_scorer
+
 class RacerQuerySet(models.QuerySet):
     def competitors(self):
         return self.exclude(fis_id=0)
@@ -14,6 +16,10 @@ class Racer(models.Model):
     rank = models.IntegerField(null=True, blank=True)
 
     objects = RacerQuerySet.as_manager()
+
+    @property
+    def lname(self):
+        return self.name.split(' ')[0]
 
     def __str__(self):
         return self.name
@@ -73,7 +79,7 @@ class RaceEvent(models.Model):
         last_tipps = []
         for u in User.objects.all().prefetch_related('tipps'):
             user_last_tipp = u.tipps.filter(
-                race_event=self, created__lt=self.race_date
+                race_event=self, #created__lt=self.race_date
             ).order_by("-created").first()
 
             if user_last_tipp:
@@ -139,6 +145,10 @@ class Tipp(models.Model):
     @property
     def created_on_race_day(self):
         return self.created.date() == self.race_event.race_date.date()
+
+    @property
+    def breakdown(self):
+        return tipp_scorer.get_tipp_breakdown(self)
 
 class TippPointTally(models.Model):
     tipper = models.ForeignKey('auth.User', related_name='user_points_tally', on_delete=models.CASCADE)
