@@ -1,6 +1,7 @@
-import skitipp.models as m
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
+
+from . import models as models
 
 def score_race(race_event):
     last_tipps = race_event.get_last_tipps
@@ -34,7 +35,7 @@ def apply_missed_tipp_penalties(race_event, user_tallies):
 
     #assign negative points for missed tip
     for u in non_tippers:
-        user_tally = m.TippPointTally(tipper=u, race_event=race_event, tipp=None)
+        user_tally = models.TippPointTally(tipper=u, race_event=race_event, tipp=None)
         no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
         user_tally.standard_points = -no_tipp_penalty
         user_tally.save()
@@ -47,7 +48,7 @@ def score_tipp(tipp):
 
     standard_points, bonus_points, details = racer_points(tipp)
 
-    user_tally = m.TippPointTally(tipper=tipper, race_event=race_event, tipp=tipp)
+    user_tally = models.TippPointTally(tipper=tipper, race_event=race_event, tipp=tipp)
 
     #race multiplier
     user_tally.points_multiplier = race_event.points_multiplier
