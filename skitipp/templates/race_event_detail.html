@@ -10,7 +10,7 @@
 <hr>
 <div class="row create_tipp row-padding">
     <div class="col-md-6">
-        {% if not object.cancelled and not object.finished %}
+        {% if not object.cancelled and not object.finished and not object.in_progress %}
         <a href="{{object.tipp_link}}" class="btn btn-secondary">New Tipp</a>
         {% endif %}
     </div>
