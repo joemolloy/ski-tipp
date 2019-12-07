@@ -34,8 +34,13 @@ $(document).ready(function() {
     $.ajax({
             "url": '{% url 'leaderboard_data' %}',
             "success": function(json) {
-                var tableHeaders = "<th>" + 'Tipper' + "</th>";
-                var columns1 = [{ "name": "tipper", "data": "user.username", "className": "table-cell-tipper" }]
+                var tableHeaders = ""
+                var columns1 = []
+                
+                tableHeaders += "<th></th> <th>" + 'Tipper' + "</th>";
+
+                columns1.push({ "name": "rank", "data": "user.rank", "className": "table-cell-rank" })
+                columns1.push({ "name": "tipper", "data": "user.username", "className": "table-cell-tipper" })
 
                 tableHeaders += "<th>" + 'Total' + "</th>";
                 columns1.push({"name": "total",  "data": "total", "className": "table_value table-cell-total" })
@@ -49,7 +54,7 @@ $(document).ready(function() {
 
                 var cell_def_targets = []
 
-                var RACE_START_COL = 4
+                var RACE_START_COL = 5
 
                 $.each(json.races, function(i, val){
                     tableHeaders += "<th>" + val.short_name + "</th>";
@@ -85,11 +90,11 @@ $(document).ready(function() {
                     paging:         false,
                     searching: false,
                     fixedColumns:   {
-                        leftColumns: 2,
+                        leftColumns: 3,
                         rightColumns: 0
                     },
                     columnDefs: [race_cell_def],
-                    order: [[ 1, 'desc' ]],
+                    order: [[ 0, 'asc' ]],
                     drawCallback: function( settings ) {
 
                         var api = this.api();

@@ -137,7 +137,7 @@ def leaderboardDataView(request):
         alleine=Subquery(best_tips.values('tipper__username')[:1])
     ).order_by('race_date')
 
-    ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points'))
+    ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points')).order_by('-race_total')
 
     adjustments = User.objects.all().annotate(
         all_adj=Sum('points_adjustments__points'),
@@ -151,14 +151,15 @@ def leaderboardDataView(request):
     race_list =  list(all_races.values())
     leaderboard = []
 
-    for u in ranked_users:
+    for rank, u in enumerate(ranked_users):
         user_adjustments = adjustments.get(id=u.id)
 
         race_total = u.race_total if u.race_total is not None else 0
         adj_total = user_adjustments.all_adj if user_adjustments.all_adj is not None else 0
-
+        user_dict_model = model_to_dict(u, fields=['id', 'username'])
+        user_dict_model['rank'] = rank + 1
         user_row = { 
-            'user' : model_to_dict(u, fields=['id', 'username']), 
+            'user' : user_dict_model, 
             'races' : [], 
             'race_total': race_total,
             'all_adj': adj_total ,
