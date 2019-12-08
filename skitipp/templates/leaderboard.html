@@ -39,8 +39,8 @@ $(document).ready(function() {
                 
                 tableHeaders += "<th></th> <th>" + 'Tipper' + "</th>";
 
-                columns1.push({ "name": "rank", "data": "user.rank", "className": "table-cell-rank" })
-                columns1.push({ "name": "tipper", "data": "user.username", "className": "table-cell-tipper" })
+                columns1.push({ "name": "rank", "data": "rank", "className": "table-cell-rank" })
+                columns1.push({ "name": "tipper", "data": "username", "className": "table-cell-tipper" })
 
                 tableHeaders += "<th>" + 'Total' + "</th>";
                 columns1.push({"name": "total",  "data": "total", "className": "table_value table-cell-total" })
@@ -82,7 +82,7 @@ $(document).ready(function() {
 				};
 
                 leaderboard_table = $('#leaderboardTable').dataTable( {
-                    data: json.data,
+                    data: json.tippers,
                     columns: columns1,
                     scrollY:        false,
                     scrollX:        true,

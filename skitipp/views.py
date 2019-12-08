@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.db import models
 from django.db.models import BooleanField
 from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery, Value
+from django.db.models.functions import Coalesce
 
 
 from django.http import HttpResponseRedirect
@@ -29,6 +30,7 @@ from django.forms.models import model_to_dict
 from skitipp import tipp_scorer
 
 import logging
+from operator import itemgetter
 
 class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -137,54 +139,52 @@ def leaderboardDataView(request):
         alleine=Subquery(best_tips.values('tipper__username')[:1])
     ).order_by('race_date')
 
-    ranked_users = User.objects.all().annotate(race_total=Sum('user_points_tally__total_points')).order_by('-race_total')
-
-    adjustments = User.objects.all().annotate(
-        all_adj=Sum('points_adjustments__points'),
-        preseason_adj=Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=True)),
-        season_adj=Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=False))
-    ).order_by('-total_points')
-    
+    ranked_users = User.objects.all().annotate(
+        preseason_adj=Coalesce(Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=True)), Value(0)),
+        season_adj=Coalesce(Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=False)), Value(0)),
+    ).values('id', 'username', 'preseason_adj', 'season_adj')
 
     #tally up the points for the race for each active user
 
     race_list =  list(all_races.values())
     leaderboard = []
 
-    for rank, u in enumerate(ranked_users):
-        user_adjustments = adjustments.get(id=u.id)
-
-        race_total = u.race_total if u.race_total is not None else 0
-        adj_total = user_adjustments.all_adj if user_adjustments.all_adj is not None else 0
-        user_dict_model = model_to_dict(u, fields=['id', 'username'])
-        user_dict_model['rank'] = rank + 1
-        user_row = { 
-            'user' : user_dict_model, 
-            'races' : [], 
-            'race_total': race_total,
-            'all_adj': adj_total ,
-            'preseason_adj' : user_adjustments.preseason_adj, 
-            'season_adj' : user_adjustments.season_adj,
-            'total' : race_total + adj_total, 
-        }
-
-        user_race_points = u.user_points_tally
+    for u in ranked_users:
+        u['races'] = []
+        total_race_points = 0
 
         for race in all_races:
-            total_points = None
+            race_points = None
             did_tipp = None
-            race_points = user_race_points.filter(race_event=race).first()
-            if race_points:
-                total_points = race_points.total_points
-                did_tipp = race_points.did_tipp
+            race_tipp_score = TippPointTally.objects.filter(tipper_id=u['id'], race_event=race).first()
+            if race_tipp_score:
+                race_points = race_tipp_score.total_points
+                total_race_points += race_points
+                did_tipp = race_tipp_score.did_tipp
                 #total_points = int(total_points) if total_points.is_integer() else total_points
             else:
-                total_points = None
-            user_row['races'].append({'points': total_points, 'did_tipp': did_tipp })
+                race_points = None
+            
+            u['races'].append({'points': race_points, 'did_tipp': did_tipp })
 
-        leaderboard.append(user_row)
+        u['race_total'] = total_race_points
+        u['total'] = u['race_total'] + u['preseason_adj'] + u['season_adj']
 
-    data = { "races" : race_list, "data" : leaderboard }
+        leaderboard.append(u)
+
+    #rank userboard
+    leaderboard.sort(key=itemgetter('total'), reverse=True)
+
+    score_previous_rank = None
+    current_rank = 0
+    for u in leaderboard:
+        user_score = u['total']
+        if score_previous_rank is None or user_score < score_previous_rank:
+            current_rank += 1
+            score_previous_rank = user_score
+        u['rank'] = current_rank
+
+    data = { "races" : race_list, "tippers" : leaderboard }
 
     return http.JsonResponse(data, json_dumps_params={'indent': 4} )
 
