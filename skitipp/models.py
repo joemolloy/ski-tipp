@@ -3,6 +3,8 @@ from django.db.models import OuterRef, Subquery
 from django.contrib.auth.models import User
 from django.urls import reverse
 
+from django.utils import timezone
+
 import skitipp.tipp_scorer as tipp_scorer
 
 class RacerQuerySet(models.QuerySet):
@@ -106,6 +108,10 @@ class RaceEvent(models.Model):
     def tipp_link(self):
             return reverse('create_tipp', kwargs={'race_id': self.pk})
         
+    @property
+    def start_date_in_past(self):
+        return self.race_date < timezone.now()
+
     def __str__(self):
         return self.short_name
 

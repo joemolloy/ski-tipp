@@ -24,17 +24,20 @@
 
     <p>FIS ID: {{ object.fis_id }}</p>
     <p>Race Page: <a href=https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={{ object.fis_id }}>link to FIS</a></p>
+    
+    <div class="btn-group" role="group">
 
-    {% if user.is_staff %} 
-        <div class="btn-group" role="group">
-            <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit</a>
-            <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Update details from FIS</a>
+        {% if user.is_staff %} 
+                <a href="{% url 'edit_race' object.pk %}" class="btn btn-secondary" role="button">Edit</a>
+                <a href="{% url 'update_race' object.pk %}" class="btn btn-secondary">Update details from FIS</a>
+        {% endif %}
 
-            {% if not object.finished and not object.in_progress %}
-                <a href="{% url 'publish_tipps' object.pk %}" class="btn btn-secondary">Publish Tipps</a>
-            {% endif %}
+        {% if object.start_date_in_past and not object.finished and not object.in_progress %}
+            <a href="{% url 'publish_tipps' object.pk %}" class="btn btn-secondary">Publish tipps</a>
+        {% endif %}
+        {% if user.is_staff and object.in_progress %} 
             <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Score Race</a> 
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 
 </div>
