@@ -229,7 +229,6 @@ def upload_race(request):
 @staff_member_required
 def update_race(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
-    print(race_event.start_date_in_past)
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 @staff_member_required
@@ -239,7 +238,7 @@ def publish_tipps(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
 
     if not race_event.start_date_in_past:
-        messages.warning(request, "Race not yet started. Tipps not published" % race_event)
+        messages.warning(request, "%s not yet started. Tipps not published" % race_event)
         return HttpResponseRedirect(race_event.get_absolute_url())
 
     race_event.in_progress = True
