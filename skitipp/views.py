@@ -128,6 +128,25 @@ class TippCreateView(LoginRequiredMixin, CreateView):
         return kwargs
 
 
+class ManualTippView(LoginRequiredMixin, CreateView):
+    template_name = 'tipp_create_form.html'
+    form_class = TippForm
+    
+    def get_context_data(self, **kwargs):
+        context = super(ManualTippView, self).get_context_data(**kwargs)
+        context['race_event'] = get_object_or_404(RaceEvent, pk=self.kwargs['race_id'])
+
+        return context
+
+    def get_form_kwargs(self):
+        kwargs = super(ManualTippView, self).get_form_kwargs()
+        kwargs['initial']['race_event'] = RaceEvent.objects.get(pk=self.kwargs['race_id'])
+        kwargs['initial']['tipper'] = get_object_or_404(User, username=self.kwargs['tipper'])
+        kwargs['initial']['corrected_tipp'] = True
+        
+        return kwargs
+
+
 from collections import defaultdict, OrderedDict
 
 @login_required
@@ -231,7 +250,7 @@ def update_race(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
     return HttpResponseRedirect(race_event.get_absolute_url())
 
-@staff_member_required
+
 def publish_tipps(request, race_id):
     race_event = get_object_or_404(RaceEvent, pk=race_id)
 

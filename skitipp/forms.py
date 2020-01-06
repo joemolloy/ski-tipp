@@ -40,7 +40,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Tipp
 
-        fields = ['race_event','tipper', 'place_1','place_2','place_3', 'dnf', 'comment']
+        fields = ['race_event','tipper', 'place_1','place_2','place_3', 'dnf', 'comment', 'corrected_tipp']
 
         labels = {
                     'place_1': '1.',
@@ -52,6 +52,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
         widgets = {
             'race_event': forms.HiddenInput(),
             'tipper': forms.HiddenInput(),
+            'corrected_tipp': forms.HiddenInput(),
             'place_1': autocomplete.ModelSelect2(url='racer-autocomplete'),
             'place_2': autocomplete.ModelSelect2(url='racer-autocomplete'),
             'place_3': autocomplete.ModelSelect2(url='racer-autocomplete'),
@@ -66,7 +67,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
 
         self.race_event = kwargs.pop('race_event', None)
         self.tipper = kwargs.pop('tipper', None)
-        print(kwargs)
+
         if not kwargs['initial']['race_event'].dnf_eligible:
             del self.fields['dnf']
 

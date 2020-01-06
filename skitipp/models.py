@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Q
 from django.contrib.auth.models import User
 from django.urls import reverse
 
@@ -82,7 +82,7 @@ class RaceEvent(models.Model):
         last_tipps = []
         for u in User.objects.all().prefetch_related('tipps'):
             user_last_tipp = u.tipps.filter(
-                race_event=self, #created__lt=self.race_date
+                Q(race_event=self & Q(Q(created__lt=self.race_date) | Q(corrected_tipp=True)))
             ).order_by("-created").first()
 
             if user_last_tipp:
@@ -141,6 +141,8 @@ class Tipp(models.Model):
     dnf = models.ForeignKey('Racer', related_name='dnfs', on_delete=models.DO_NOTHING, null=True, blank=True)
 
     comment = models.TextField(null=True, blank=True)
+
+    corrected_tipp = models.BooleanField(default=False)
 
     def get_absolute_url(self):
         return reverse('create_tipp', kwargs={'race_id': self.race_event.pk})
