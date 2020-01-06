@@ -31,7 +31,7 @@ RACE_TYPES = {
         "Giant Slalom" : "tech",
         "Super G": "speed",
         "Downhill" : "speed",
-        "Alpine Combined" : "other",
+        "Alpine combined" : "other",
         "City Event" : "other",
         "Parallel Giant Slalom" : "other",
         "Parallel Slalom" : "other"

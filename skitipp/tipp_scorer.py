@@ -116,10 +116,11 @@ def podium_points(racer, position, race_event):
 
 def dnf_points(tipp, race_event):
     points = 0
-    if tipp.alle_im_ziel and race_event.alle_im_ziel:
-        points += 1
-    elif race_event.dnfs.filter(racer=tipp.dnf).exists():
-        points += 1
+    if race_event.dnf_eligible:
+        if tipp.alle_im_ziel and race_event.alle_im_ziel:
+            points += 1
+        elif race_event.dnf_eligible andrace_event.dnfs.filter(racer=tipp.dnf).exists():
+            points += 1
 
     return points
 
