@@ -40,7 +40,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Tipp
 
-        fields = ['race_event','tipper', 'place_1','place_2','place_3','dnf','comment']
+        fields = ['race_event','tipper', 'place_1','place_2','place_3', 'dnf', 'comment']
 
         labels = {
                     'place_1': '1.',
@@ -62,11 +62,14 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
 
 
     def __init__(self, *args, **kwargs):
+        super(TippForm, self).__init__(*args, **kwargs)
 
         self.race_event = kwargs.pop('race_event', None)
         self.tipper = kwargs.pop('tipper', None)
+        print(kwargs)
+        if not kwargs['initial']['race_event'].dnf_eligible:
+            del self.fields['dnf']
 
-        super(TippForm, self).__init__(*args, **kwargs)
         
     #validation
     def clean_dnf(self):
