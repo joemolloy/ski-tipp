@@ -9,7 +9,9 @@
             <div class="place1"> {{ tipp.place_1 }} </div>
             <div class="place2"> {{ tipp.place_2}} </div>
             <div class="place3"> {{ tipp.place_3 }} </div>
-            <div class="dnf"> {{ tipp.dnf }} </div>
+            {% if tipp.race_event.dnf_eligible %}
+                <div class="dnf"> {{ tipp.dnf }} </div>
+            {% endif %}
         </div>
         <div class="tipp_col tipp_col_icons">
             <div class="tipp_date">  
