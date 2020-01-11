@@ -3,7 +3,7 @@
         <div class="tipp_col tipp_col_podium">     
             <div class="tipper"> <b> 
                 {{ tipp.tipper.username }} </b>
-                {% if tipp.tipp_points_tally.is_best_tipp %}  👑 {% endif %}
+                {% if tipp.race_event.finished and tipp.tipp_points_tally.is_best_tipp %}  👑 {% endif %}
             </div>
             
             <div class="place1"> {{ tipp.place_1 }} </div>
@@ -20,15 +20,18 @@
                 {% endif %}
                 {{ tipp.created|date:"d.m.y" }} 
             </div>
-            <div class="tipp_score_expander">
-                <p>
-                    <a class="btn btn-link" data-toggle="collapse" 
-                        href="#tipp_details_{{ tipp.tipper.username }}" role="button" aria-expanded="false" 
-                        aria-controls="tipp_details_{{ tipp.tipper.username }}">
-                        🔎
-                    </a>
-                </p>
-            </div>
+            {% if tipp.race_event.finished and tipp.tipp_points_tally %}
+                <div class="tipp_score_expander">
+                    <p>
+                        <a class="btn btn-link" data-toggle="collapse" 
+                            href="#tipp_details_{{ tipp.tipper.username }}" role="button" aria-expanded="false" 
+                            aria-controls="tipp_details_{{ tipp.tipper.username }}">
+                            {{ tipp.tipp_points_tally.total_points }}
+                            🔎
+                        </a>
+                    </p>
+                </div>
+            {% endif %}
         </div>
     </div>
     {% if tipp.comment %}
