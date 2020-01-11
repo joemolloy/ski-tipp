@@ -16,7 +16,7 @@ from django.urls import reverse
 
 from dal import autocomplete
 
-from django.views.generic.edit import CreateView, UpdateView
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 from django.views.generic.base import TemplateView
@@ -85,6 +85,11 @@ class RaceEventEditView(LoginRequiredMixin, UpdateView):
     model = RaceEvent
     form_class = RaceEventForm
 
+class RaceEventDeleteView(LoginRequiredMixin, DeleteView):
+    template_name = 'race_event_confirm_delete.html'
+    model = RaceEvent
+    success_url = '/app/racelist/'
+
 
 class RaceEventDetailView(LoginRequiredMixin, DetailView):
     template_name = 'race_event_detail.html'
@@ -112,8 +117,6 @@ class TippCreateView(LoginRequiredMixin, CreateView):
     template_name = 'tipp_create_form.html'
     form_class = TippForm
     
-    success_url = '/app/racelist/'
-
     def get_context_data(self, **kwargs):
         context = super(TippCreateView, self).get_context_data(**kwargs)
         context['race_event'] = get_object_or_404(RaceEvent, pk=self.kwargs['race_id'])
@@ -127,6 +130,8 @@ class TippCreateView(LoginRequiredMixin, CreateView):
 
         return kwargs
 
+    def get_success_url(self):
+        return reverse('race_detail', args = (self.object.race_event.fis_id,))
 
 class ManualTippView(LoginRequiredMixin, CreateView):
     template_name = 'tipp_create_form.html'

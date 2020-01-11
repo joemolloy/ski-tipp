@@ -35,8 +35,10 @@
         {% if object.start_date_in_past and not object.finished and not object.in_progress %}
             <a href="{% url 'publish_tipps' object.pk %}" class="btn btn-secondary">Publish tipps</a>
         {% endif %}
-        {% if user.is_staff and object.in_progress %} 
-            <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Score Race</a> 
+        {% if user.is_staff %}
+            {% if object.in_progress or object.finished %}
+                <a href="{% url 'finalize_race' object.pk %}" class="btn btn-secondary">Score Race</a>
+            {% endif %}
         {% endif %}
     </div>
 

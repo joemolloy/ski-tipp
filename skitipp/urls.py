@@ -8,6 +8,7 @@ urlpatterns = [
     path('race/<int:pk>/detail/', views.RaceEventDetailView.as_view(), name='race_detail'),
     path('race/<int:pk>/results/', views.RaceResultsView.as_view(), name='race_results'),
     path('race/<int:pk>/edit/', views.RaceEventEditView.as_view(), name='edit_race'),
+    path('race/<int:pk>/delete/', views.RaceEventDeleteView.as_view(), name='delete_race'),
 
     path('race/<int:race_id>/tipp/', views.TippCreateView.as_view(), name='create_tipp'),
     

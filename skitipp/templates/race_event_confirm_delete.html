@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<div class="row row-padding">
+    <div class="col-auto">
+        <form method="post">{% csrf_token %}
+            <p>Are you sure you want to delete <b>{{ object }} </b>?</p>
+            <ul style="list-style-type: None;">
+                <li>{{ object.location }} </li>
+                <li>{{ object.kind }} </li>
+                <li>{{ object.race_date }} </li>
+            </ul>
+            <p> <b> All tipps for this race will be deleted </b> </p>
+            <input type="submit" value="Confirm">
+        </form>
+    </div>
+</div>
+
+
+{% endblock%}

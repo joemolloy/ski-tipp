@@ -128,7 +128,7 @@ def get_dnf_racers(tree, race_event):
     dnf_athletes = []
 
     for header, table in dnf_tables:
-        if not header == 'Did not qualify':
+        if not header in ['Did not qualify', 'Did not start 1st run']:
             print (header)
             athlete_row = table.xpath('.//div[@class="g-row justify-sb"]') 
             for row in athlete_row:
@@ -137,7 +137,6 @@ def get_dnf_racers(tree, race_event):
                 start_number = int(cols[0])
                 fis_id = int(cols[1])
                 name = str(cols[2]).strip()
-
                 racer, created = Racer.objects.get_or_create(fis_id=fis_id, name=name)
                 if start_number <= race_event.start_list_length:
                     RaceCompetitor.objects.update_or_create(
@@ -166,6 +165,8 @@ def get_race_results(fis_race_id):
     tree = html.fromstring(page.content)
 
     race_event = extract_race_info(tree, fis_race_id)
+    #delete previous competitors from race
+    RaceCompetitor.objects.filter(race_event=race_event).delete()
 
     if results_published(tree):
         finishers = get_finishers(tree, race_event)
