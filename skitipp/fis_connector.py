@@ -51,8 +51,9 @@ def extract_race_info(tree, fis_race_id):
     (race_event, created) = RaceEvent.objects.get_or_create(fis_id=fis_race_id, defaults={
         "location":race_name, "kind":race_kind, "race_date":race_date_time, 'start_list_length':30
     })
+    if not race_event.finished:
+        race_event.race_date = race_date_time #only update race time if race isn't finished to allow editing of date
 
-    race_event.race_date = race_date_time
     race_event.save()
     
     if created:
