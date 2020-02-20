@@ -189,7 +189,7 @@ def leaderboardDataView(request):
             else:
                 race_points = None
             
-            u['races'].append({'points': race_points, 'did_tipp': did_tipp })
+            u['races'].append({'points': race_points, 'did_tipp': did_tipp, 'fis_id': race.fis_id })
 
         u['race_total'] = total_race_points
         u['total'] = u['race_total'] + u['preseason_adj'] + u['season_adj']

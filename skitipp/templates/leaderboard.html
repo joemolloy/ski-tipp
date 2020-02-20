@@ -29,6 +29,7 @@
 var leaderboard_table = null;
 var alleine_map = []
 var no_tipp_cells = []
+var tipped_cells = []
 
 $(document).ready(function() {
     $.ajax({
@@ -76,6 +77,8 @@ $(document).ready(function() {
 					"render": function ( data, type, row, meta ) {
                         if (data.did_tipp != null & !data.did_tipp) {
                             no_tipp_cells.push ({ row: meta.row , col: meta.col})
+                        } else if (data.did_tipp != null & data.did_tipp) {
+                            tipped_cells.push ({ row: meta.row , col: meta.col})
                         }
                         return data.points;
 					}
@@ -111,12 +114,29 @@ $(document).ready(function() {
                             var cell = api.cell( this.row , this.col ).node()
                             $(cell).addClass('negative_pts')
                         })
+                        $.each(tipped_cells, function() {
+                            var cell = api.cell( this.row , this.col ).node()
+                            $(cell).addClass('tipped')
+                        })
+
                     }
+                });
+
+                 $('#leaderboardTable').on( 'click', 'tbody td.table-cell-race.tipped', function () {
+                    cell = leaderboard_table.api().cell( this )
+                    row_idx = cell.index().row
+                    var tipper = leaderboard_table.api().column('tipper:name').data()[row_idx]
+                    var race_id = cell.data().fis_id
+                    var anchor_text = tipper + '_' + race_id
+                    window.location.href = "/app/race/" + race_id + "/detail/#" + anchor_text;
+                
                 });
 
             },
             "dataType": "json"
     });
+
+   
 });
 
 </script>

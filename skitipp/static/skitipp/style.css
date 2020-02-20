@@ -94,12 +94,17 @@ div.dnf::before {
     width: 100%;
 }
 
+
 .table-cell-race.alleine_im_sieg {
     background-color: lightgreen
 }
 
 .table-cell-race.negative_pts {
     background-color: lightcoral
+}
+
+.table-cell-race.tipped {
+    cursor: pointer;
 }
 
 .tipp_result_accordian {
