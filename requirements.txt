@@ -3,7 +3,6 @@ django-autocomplete-light==3.5.1
 lxml
 requests
 python-dateutil
-psycopg2
 jupyter
 ipython
 django-extensions
