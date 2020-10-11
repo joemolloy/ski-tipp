@@ -32,8 +32,10 @@ if 'RDS_DB_NAME' in os.environ:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+elif 'ec2' in os.environ:
+    print('running on signle instance')
 
-ALLOWED_HOSTS = ['localhost', 'istv-eu.p7enjpyz3m.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-eu.p7enjpyz3m.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
     'dal',
     'dal_select2',
 ]

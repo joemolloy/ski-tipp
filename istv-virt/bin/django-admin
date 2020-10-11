@@ -1,4 +1,4 @@
-#!/Users/joemolloy/Projects/istv/istv-virt/bin/python3.7
+#!/Users/joemolloy/Projects/istv/istv-virt/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
