@@ -6,3 +6,4 @@ python-dateutil
 jupyter
 ipython
 django-extensions
+gunicorn==20.0.4
