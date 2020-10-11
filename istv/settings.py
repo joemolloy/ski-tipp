@@ -35,7 +35,7 @@ if 'RDS_DB_NAME' in os.environ:
 elif 'ec2' in os.environ:
     print('running on signle instance')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-eu.p7enjpyz3m.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-dev.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
