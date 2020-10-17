@@ -35,7 +35,7 @@ if 'RDS_DB_NAME' in os.environ:
 elif 'ec2' in os.environ:
     print('running on signle instance')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-dev.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-dev.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org', '52.29.235.120']
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
@@ -108,12 +108,30 @@ if 'RDS_DB_NAME' in os.environ:
         }
     }
 else:
+
+    print ('loading database from :' + os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')))
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'NAME': os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')),
         }
     }
+
+if 'AWS_ACCESS_KEY_ID' in os.environ:
+    EMAIL_BACKEND = 'django_ses.SESBackend'
+    DEFAULT_FROM_EMAIL = 'no-reply@ski-tipp.org'
+
+    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+
+    AWS_SES_REGION_NAME = 'eu-central-1'
+    AWS_SES_REGION_ENDPOINT = 'email.eu-central-1.amazonaws.com'
+    
+
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+    EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -153,3 +171,4 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = 'static'
+

@@ -1,5 +1,6 @@
 django
 django-autocomplete-light==3.5.1
+django-ses
 lxml
 requests
 python-dateutil

@@ -10,6 +10,7 @@ from django.db.models import BooleanField
 from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery, Value
 from django.db.models.functions import Coalesce
 
+import datetime
 
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -64,8 +65,8 @@ class RaceListView(LoginRequiredMixin, ListView):
         return RaceEvent.objects.all().annotate(
             user_has_tipped=Exists(valid_tipp),
             race_status=Case(
-                When(finished=True, then=Value('Finished')),
-                default=Value('Upcoming & In Progress'),
+                When(Q(in_progress=True) | Q(race_date__date__gte = datetime.date.today()), then=Value('Upcoming & In Progress')),
+                default=Value('Finished'),
                 output_field=CharField(),
             )
         ).order_by('-race_status', 'race_date')

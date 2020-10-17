@@ -23,6 +23,16 @@ from skitipp.views import RaceListView, AboutView, register, login_view
 
 from skitipp.forms import CustomLoginForm
 
+
+admin.site.site_header = "Ski-tipp Admin"
+admin.site.title = "Ski-tipp Admin"
+admin.site.site = "Ski-tipp Admin"
+admin.site.site_title = admin.site.site_header = "Ski-tipp Admin Portal"
+
+admin.site.index_title = "Welcome to Ski-tipp.org"
+
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/login/', login_view, name='login'),
@@ -33,4 +43,3 @@ urlpatterns = [
     path('', RaceListView.as_view(), name='index'),
     path('about/', AboutView.as_view(), name='about'),
 ]
-
