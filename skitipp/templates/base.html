@@ -1,6 +1,6 @@
 
 {% load static %}
-
+{% load season_functions %}
 <html>
 <head>
 
@@ -34,6 +34,7 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarNavDropdown">
     <ul class="navbar-nav">
+      {% nav_seasons_list %}
       <li class="nav-item {{ race_list }}">
         <a class="nav-link" href="{% url 'race_list' %}">Races</a>
       </li>
@@ -51,7 +52,7 @@
                 <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 {{ request.user }}
                 </a>
-                <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                <div class="dropdown-menu  dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
                 {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'upload_race' %}">Add Race</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'update_racers' %}">Update Start List</a> {% endif %}
@@ -66,6 +67,16 @@
     </ul>
   </div>
 </nav>
+{% selected_season_is_current_season as is_current_season %}
+{% if not is_current_season %}
+<div class="container-fluid previous-season-alert alert-warning">
+  <div class="row justify-content-md-center">
+    <div class="col-md-auto" style="padding:5px">
+    Warning, this is an previous Season. To return to the current season, click <a href="{% url 'select_current_season' %}"> here</a>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="container">
     <div class="row mt-4">

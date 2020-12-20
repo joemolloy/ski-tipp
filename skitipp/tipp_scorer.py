@@ -27,6 +27,7 @@ def apply_missed_tipp_penalties(race_event, user_tallies):
     #get the count of missed races for each user who didnt tip, before to the current race (race_event)
     non_tippers = User.objects.exclude(id__in=tippers).annotate(
         prev_no_tipp_offences=Count("user_points_tally", filter=Q(
+                user_points_tally__race_event__season=race_event.season,
                 user_points_tally__race_event__race_date__lt=race_event.race_date,
                 user_points_tally__tipp__isnull=True
             )

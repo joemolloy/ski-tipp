@@ -10,6 +10,8 @@ from django.db.models import BooleanField
 from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery, Value
 from django.db.models.functions import Coalesce
 
+from django.db.utils import OperationalError
+
 import datetime
 
 from django.http import HttpResponseRedirect
@@ -23,7 +25,7 @@ from django.views.generic.list import ListView
 from django.views.generic.base import TemplateView
 
 from skitipp.forms import *
-from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment
+from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Season
 
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
@@ -32,6 +34,19 @@ from skitipp import tipp_scorer
 
 import logging
 from operator import itemgetter
+
+def get_selected_season(request):
+    season_pk = request.session.get('selected_season_pk', -1)
+    return Season.objects.filter(Q(pk=season_pk)|Q(current=True)).first()
+
+def select_season(request, pk):
+    if Season.objects.filter(pk=pk).exists():
+        request.session['selected_season_pk'] = pk
+    return redirect('race_list')
+
+def select_current_season(request):
+    request.session['selected_season_pk'] = Season.objects.filter(current=True).first().pk
+    return redirect('race_list')
 
 class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -62,7 +77,9 @@ class RaceListView(LoginRequiredMixin, ListView):
             tipper=self.request.user,
             #created_at__gte=one_day_ago,
         )
-        return RaceEvent.objects.all().annotate(
+        return RaceEvent.objects.filter(
+            season=get_selected_season(self.request)
+        ).annotate(
             user_has_tipped=Exists(valid_tipp),
             race_status=Case(
                 When(Q(in_progress=True) | Q(race_date__date__gte = datetime.date.today()), then=Value('Upcoming & In Progress')),
@@ -75,6 +92,7 @@ class RaceListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super(RaceListView, self).get_context_data(**kwargs)
         context['race_list'] = 'active'
+        context['season_name'] = get_selected_season(self.request).name
         return context
 
 class RaceEventCreateView(LoginRequiredMixin, CreateView):
@@ -158,15 +176,21 @@ from collections import defaultdict, OrderedDict
 @login_required
 def leaderboardDataView(request):
 
+    selected_season = get_selected_season(request)
+
     best_tips = TippPointTally.objects.filter(race_event=OuterRef('pk')).filter(is_best_tipp=True)
 
-    all_races = RaceEvent.objects.all().annotate(
+    all_races = RaceEvent.objects.filter(
+        season=selected_season
+    ).annotate(
         alleine=Subquery(best_tips.values('tipper__username')[:1])
     ).order_by('race_date')
 
     ranked_users = User.objects.all().annotate(
-        preseason_adj=Coalesce(Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=True)), Value(0)),
-        season_adj=Coalesce(Sum('points_adjustments__points', filter=Q(points_adjustments__preseason=False)), Value(0)),
+        preseason_adj=Coalesce(Sum('points_adjustments__points', 
+            filter=Q(points_adjustments__preseason=True)&Q(points_adjustments__season=selected_season)), Value(0)),
+        season_adj=Coalesce(Sum('points_adjustments__points', 
+        filter=Q(points_adjustments__preseason=False)&Q(points_adjustments__season=selected_season)), Value(0)),
     ).values('id', 'username', 'preseason_adj', 'season_adj')
 
     #tally up the points for the race for each active user
@@ -283,9 +307,11 @@ def update_wc_start_list(request):
 @staff_member_required
 def rescore_all_races(request):
 
-    TippPointTally.objects.all().delete()
+    selected_season = get_selected_season(request)
 
-    for race_event in RaceEvent.objects.filter(finished=True).order_by('race_date'):
+    TippPointTally.objects.filter(race_event__season=selected_season).delete()
+
+    for race_event in RaceEvent.objects.filter(season=selected_season, finished=True).order_by('race_date'):
         
         race_event = fis_connector.get_race_results(race_event.fis_id)
 
@@ -325,9 +351,15 @@ def finalize_race(request, race_id):
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 class PointAdjustmentListView(CreateView):
+
     
     form_class = PointAdjustmentForm
     template_name = "point_adjustments.html"
+    try:
+        current_season = Season.objects.filter(current=True).first()
+        initial={'season': current_season}
+    except OperationalError as err:
+        logging.error(err) 
 
     def get_context_data(self, **kwargs):
         context = super(PointAdjustmentListView, self).get_context_data(**kwargs)

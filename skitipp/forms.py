@@ -92,7 +92,7 @@ class UploadRaceForm(BootstrapFormMixin, forms.Form):
 class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = PointAdjustment
-        fields = ['tipper', 'reason', 'points', 'preseason']
+        fields = ['tipper', 'season', 'reason', 'points', 'preseason']
 
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User

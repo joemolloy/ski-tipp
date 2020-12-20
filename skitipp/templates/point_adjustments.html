@@ -31,7 +31,14 @@
 </div>
 <div class="row">
     <div class="col-md-4 pa_list">
-        {% for adjustment in point_adjustment_list %}
+
+        {% regroup point_adjustment_list by season as season_list %}
+
+        
+        {% for season in season_list %}
+        <h4 class="pa_season"> {{ season.grouper }} </h4>
+
+        {% for adjustment in season.list %}
         <div class="pa_card">
             <div class="pa_card_col">
                 <div class="pa_date"> {{ adjustment.created | date:"SHORT_DATE_FORMAT" }} </div>
@@ -48,6 +55,8 @@
             </div>
         </div>
         {% endfor %}
+        {% endfor %}
+        </div>
     </div>
 </div>
 

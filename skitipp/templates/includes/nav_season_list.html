@@ -1,0 +1,16 @@
+
+
+<ul class="navbar-nav">
+    <li class="nav-item select_season dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="seasonDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        {{ selected_season }}
+        </a>
+        <div class="dropdown-menu" aria-labelledby="seasonDropdownMenuLink">
+        {% for season in seasons %}
+            {% if season != selected_season %}
+            <a class="dropdown-item {% if season.current %} current_season_nav {% endif %} " href="{% url 'select_season' season.pk %}">{{ season }}</a>
+            {% endif %}
+        {% endfor %}
+        </div>
+    </li>
+</ul>

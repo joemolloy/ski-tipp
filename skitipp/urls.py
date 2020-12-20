@@ -29,6 +29,10 @@ urlpatterns = [
 
     path('update_racers/', views.update_wc_start_list, name='update_racers'),
 
+    path('season/select/<int:pk>/', views.select_season, name='select_season'),
+    path('season/select/current/', views.select_current_season, name='select_current_season'),
+
+
     path(
         r'racer-autocomplete/',
         views.RacerAutocomplete.as_view(),

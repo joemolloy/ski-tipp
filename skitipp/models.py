@@ -37,6 +37,20 @@ RACE_TYPES = {
         "Parallel Slalom" : "other"
     }
 
+class Season(models.Model):
+    name = models.CharField(max_length=200,null=False)
+    start_date = models.DateField(null=False)
+    end_date = models.DateField(null=False)
+    tippers = models.ManyToManyField('auth.User')
+    current = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
+    def select_season_url(self):
+        return reverse('select_season', kwargs={'pk': self.pk})
+
+
 class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)
     
@@ -51,6 +65,10 @@ class RaceEvent(models.Model):
 
     short_name = models.CharField(max_length=10)
     start_list_length = models.IntegerField(null=False)
+
+    season = models.ForeignKey('Season',
+        related_name='races', on_delete=models.CASCADE, null=True, blank=True
+    )
 
     def get_absolute_url(self):
         return reverse('race_detail', kwargs={'pk': self.pk})
@@ -187,6 +205,7 @@ class PointAdjustment(models.Model):
     reason = models.CharField(max_length=200, null=False)
     preseason = models.BooleanField(null=False, default=False)
     created = models.DateTimeField(auto_now_add=True)
+    season = models.ForeignKey('Season', related_name='points_adjustments', null=False, on_delete=models.CASCADE) 
 
     points = models.FloatField(null=False, help_text="(+/-)")
 
