@@ -1,6 +1,7 @@
 <!-- templates/registration/login.html -->
 {% extends "base.html" %}
 
+{% load season_functions %}
 {% block head %}
     <link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.datatables.net/fixedcolumns/3.2.6/css/fixedColumns.dataTables.min.css" crossorigin="anonymous">
@@ -9,10 +10,16 @@
 
 {% block page_content %}
 
+{% selected_season as selected_season_1 %}
+<div>
+    <h2>{{ selected_season_1 }} Season</h2>
+</div>
+
 <div id="leaderboard" class="display">
 </div>
 
-{% if user.is_staff %}
+{% selected_season_is_current_season as is_current_season %}
+{% if user.is_staff and is_current_season %}
 <div>
     <a class="btn btn-primary mb-2" href="{% url 'rescore_all_races' %}" role="button">Rescore all Races</a>
 </div>

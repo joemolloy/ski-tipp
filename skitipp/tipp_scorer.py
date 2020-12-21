@@ -37,7 +37,8 @@ def apply_missed_tipp_penalties(race_event, user_tallies):
     #assign negative points for missed tip
     for u in non_tippers:
         user_tally = models.TippPointTally(tipper=u, race_event=race_event, tipp=None)
-        no_tipp_penalty = int(u.prev_no_tipp_offences >= 1)
+        #no_tipp_penalty = int(u.prev_no_tipp_offences >= 1) 
+        no_tipp_penalty = 0 #from 2020/2021 no more penalty for missed tipps.
         user_tally.standard_points = -no_tipp_penalty
         user_tally.save()
 

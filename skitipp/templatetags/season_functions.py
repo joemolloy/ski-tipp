@@ -14,8 +14,10 @@ def nav_seasons_list(context):
     }
 
 @register.simple_tag(takes_context=True)
+def selected_season(context):
+    return get_selected_season(context.request)
+
+@register.simple_tag(takes_context=True)
 def selected_season_is_current_season(context):
-    print(get_selected_season(context.request))
-    print(Season.objects.filter(current=True).first())
     return get_selected_season(context.request) == Season.objects.filter(current=True).first()
 
