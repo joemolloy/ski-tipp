@@ -40,7 +40,7 @@ from operator import itemgetter
 
 def select_season(request, season_id):
     get_object_or_404(Season, pk=season_id)
-    return redirect('race_list', season_id=pk)
+    return redirect('race_list', season_id=season_id)
 
 def select_current_season(request):
     request.session['selected_season_pk'] = Season.objects.filter(current=True).first().pk
