@@ -53,13 +53,13 @@ $(document).ready(function() {
                 columns1.push({ "name": "tipper", "data": "username", "className": "table-cell-tipper" })
 
                 tableHeaders += "<th>" + 'Total' + "</th>";
-                columns1.push({"name": "total",  "data": "total", "className": "table_value table-cell-total" })
+                columns1.push({"name": "total",  "data": "total", "className": "table-value table-cell-total" })
 
                 tableHeaders += "<th>" + 'Start Pts' + "</th>";
-                columns1.push({ "name": "preseason_adj", "data": "preseason_adj", "className": "table_value" })
+                columns1.push({ "name": "preseason_adj", "data": "preseason_adj", "className": "table-value" })
 
                 tableHeaders += "<th>" + 'Season Pts' + "</th>";
-                columns1.push({ "name": "season_adj", "data": "season_adj", "className": "table_value"  })
+                columns1.push({ "name": "season_adj", "data": "season_adj", "className": "table-value season-pts"  })
 
 
                 var cell_def_targets = []
@@ -68,7 +68,7 @@ $(document).ready(function() {
 
                 $.each(json.races, function(i, val){
                     tableHeaders += "<th>" + val.short_name + "</th>";
-                    var classes = "table-cell-race race-" + i + " table_value" 
+                    var classes = "table-cell-race race-" + i + " table-value" 
                     var col_name = "races."+i
                     columns1.push({ "name": col_name, "data": col_name , "className": classes })
                     if (val.alleine != null) {

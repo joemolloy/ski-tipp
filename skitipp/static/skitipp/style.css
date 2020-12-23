@@ -107,6 +107,15 @@ div.dnf::before {
     cursor: pointer;
 }
 
+td.table-cell-total {
+    border-left: solid 1px;
+    border-right: solid 1px
+}
+
+td.season-pts {
+    border-right: solid 1px
+}
+
 .tipp_result_accordian {
     padding-top:10px;
     padding-bottom:30px;
@@ -169,6 +178,6 @@ td.table-cell-total {
     background-color: #cccccc;
 }
 
-td.table_value {
+td.table-value {
     text-align: center
 }
