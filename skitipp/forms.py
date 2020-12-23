@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from dal import forward
 from dal import autocomplete
 
-from .models import RaceEvent, Tipp, PointAdjustment
+from .models import RaceEvent, Tipp, PointAdjustment, Season
 import logging
 
 class BootstrapFormMixin(object):
@@ -87,6 +87,7 @@ class TippForm(BootstrapFormMixin, forms.ModelForm):
 
         
 class UploadRaceForm(BootstrapFormMixin, forms.Form):
+    season = forms.ModelChoiceField(Season.objects.all(), label='Season')
     fis_id = forms.IntegerField(label='FIS ID')
 
 class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):

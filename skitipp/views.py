@@ -1,9 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django import http
 from django.contrib.auth.mixins import LoginRequiredMixin
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+
+from django.views.generic.base import ContextMixin
 
 from django.db import models
 from django.db.models import BooleanField
@@ -35,18 +38,24 @@ from skitipp import tipp_scorer
 import logging
 from operator import itemgetter
 
-def get_selected_season(request):
-    season_pk = request.session.get('selected_season_pk', -1)
-    return Season.objects.filter(Q(pk=season_pk)|Q(current=True)).first()
-
-def select_season(request, pk):
-    if Season.objects.filter(pk=pk).exists():
-        request.session['selected_season_pk'] = pk
-    return redirect('race_list')
+def select_season(request, season_id):
+    get_object_or_404(Season, pk=season_id)
+    return redirect('race_list', season_id=pk)
 
 def select_current_season(request):
     request.session['selected_season_pk'] = Season.objects.filter(current=True).first().pk
-    return redirect('race_list')
+    return redirect('race_list_current')
+
+class SeasonContextMixin(ContextMixin):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        season_id = self.kwargs.get('season_id')
+
+        context['selected_season'] = Season.objects.all().annotate(
+            is_selected=Case(When(pk=season_id, then=Value(True)),default=Value(False), output_field=BooleanField())
+        ).order_by('-is_selected','-current').first()
+        return context
 
 class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
@@ -63,14 +72,15 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
 
         return qs
 
-class RaceListView(LoginRequiredMixin, ListView):
+class RaceListView(LoginRequiredMixin, SeasonContextMixin, ListView):
     template_name = 'race_list.html'
     model = RaceEvent
 
     def get_queryset(self):
 
         #messages.success(self.request, "Welcome to ski-tipp!")
-
+        current_season = Season.objects.filter(current=True).first()
+        selected_season = Season.objects.filter(pk=self.kwargs.get('season_id', current_season.pk)).first()
         #annotate if tipp was made for this race
         valid_tipp = Tipp.objects.filter(
             race_event=OuterRef('pk'),
@@ -78,7 +88,7 @@ class RaceListView(LoginRequiredMixin, ListView):
             #created_at__gte=one_day_ago,
         )
         return RaceEvent.objects.filter(
-            season=get_selected_season(self.request)
+            season=selected_season
         ).annotate(
             user_has_tipped=Exists(valid_tipp),
             race_status=Case(
@@ -90,27 +100,30 @@ class RaceListView(LoginRequiredMixin, ListView):
 
 
     def get_context_data(self, **kwargs):
+
+        #selected_season = Season.objects.filter(pk=self.kwargs.get('season_id', 2)).first()
+        print('racelist', self.kwargs)
         context = super(RaceListView, self).get_context_data(**kwargs)
         context['race_list'] = 'active'
-        context['season_name'] = get_selected_season(self.request).name
+        #context['selected_season'] = selected_season
         return context
 
 class RaceEventCreateView(LoginRequiredMixin, CreateView):
     template_name = 'race_event_form.html'
     form_class = RaceEventForm
 
-class RaceEventEditView(LoginRequiredMixin, UpdateView):
+class RaceEventEditView(LoginRequiredMixin, SeasonContextMixin, UpdateView):
     template_name = 'race_event_form.html'
     model = RaceEvent
     form_class = RaceEventForm
 
-class RaceEventDeleteView(LoginRequiredMixin, DeleteView):
+class RaceEventDeleteView(LoginRequiredMixin, SeasonContextMixin, DeleteView):
     template_name = 'race_event_confirm_delete.html'
     model = RaceEvent
     success_url = '/app/racelist/'
 
 
-class RaceEventDetailView(LoginRequiredMixin, DetailView):
+class RaceEventDetailView(LoginRequiredMixin, SeasonContextMixin, DetailView):
     template_name = 'race_event_detail.html'
     model = RaceEvent
 
@@ -126,13 +139,13 @@ class RaceEventDetailView(LoginRequiredMixin, DetailView):
 
         return context
 
-class RaceResultsView(LoginRequiredMixin, DetailView):
+class RaceResultsView(LoginRequiredMixin, SeasonContextMixin, DetailView):
     template_name = 'race_event_results.html'
     model = RaceEvent
 
 
 
-class TippCreateView(LoginRequiredMixin, CreateView):
+class TippCreateView(LoginRequiredMixin, SeasonContextMixin, CreateView):
     template_name = 'tipp_create_form.html'
     form_class = TippForm
     
@@ -150,9 +163,10 @@ class TippCreateView(LoginRequiredMixin, CreateView):
         return kwargs
 
     def get_success_url(self):
-        return reverse('race_detail', args = (self.object.race_event.fis_id,))
+        race_event = self.object.race_event
+        return race_event.get_absolute_url()
 
-class ManualTippView(LoginRequiredMixin, CreateView):
+class ManualTippView(LoginRequiredMixin, SeasonContextMixin, CreateView):
     template_name = 'tipp_create_form.html'
     form_class = TippForm
     
@@ -174,9 +188,11 @@ class ManualTippView(LoginRequiredMixin, CreateView):
 from collections import defaultdict, OrderedDict
 
 @login_required
-def leaderboardDataView(request):
+def leaderboardDataView(request, season_id, race_kind):
 
-    selected_season = get_selected_season(request)
+    selected_season = get_object_or_404(Season,pk=season_id)
+    if race_kind != 'Overall' and not selected_season.races.filter(kind=race_kind).exists():
+        return HttpResponseNotFound('<h1>Page not found</h1>')
 
     best_tips = TippPointTally.objects.filter(race_event=OuterRef('pk')).filter(is_best_tipp=True)
 
@@ -185,6 +201,9 @@ def leaderboardDataView(request):
     ).annotate(
         alleine=Subquery(best_tips.values('tipper__username')[:1])
     ).order_by('race_date')
+
+    if race_kind != 'Overall':
+        all_races = all_races.filter(kind=race_kind)
 
     ranked_users = User.objects.all().annotate(
         preseason_adj=Coalesce(Sum('points_adjustments__points', 
@@ -238,21 +257,21 @@ def leaderboardDataView(request):
     return http.JsonResponse(data, json_dumps_params={'indent': 4} )
 
 
-class LeaderboardView(LoginRequiredMixin, TemplateView):
+class LeaderboardView(LoginRequiredMixin, SeasonContextMixin, TemplateView):
     template_name = "leaderboard.html"
 
     def get_context_data(self, **kwargs):
         context = super(LeaderboardView, self).get_context_data(**kwargs)
         context['leaderboard'] = 'active'
+        context['discipline'] = kwargs['race_kind']
         return context
-
-
-
 
 from skitipp import fis_connector
 
 @staff_member_required
-def upload_race(request):
+def upload_race(request, season_id):
+
+    selected_season = get_object_or_404(Season, pk=season_id)
     # if this is a POST request we need to process the form data
     if request.method == 'POST':
         # create a form instance and populate it with data from the request:
@@ -262,18 +281,25 @@ def upload_race(request):
         if form.is_valid():
             # process the data in form.cleaned_data as required
             race_fis_id = form.cleaned_data['fis_id']
+            race_season = form.cleaned_data['season']
 
-            fis_connector.get_race_results(race_fis_id)
+            race_event, created = fis_connector.get_new_race_results(race_fis_id, race_season)
 
             # redirect to a new URL:
             #return HttpResponseRedirect(reverse('race_detail', kwargs={'pk': race_fis_id}))
-            return HttpResponseRedirect(reverse('race_list'))
+            if created:
+                messages.info(request, 'Race created: ' + str(race_fis_id) + ' in season ' + str(race_season) + ' - ' + race_event.short_name)
+            else:
+                messages.warning(request, 'Race alreaday exists: ' + str(race_fis_id) + ' in season ' + str(race_season) + ' - ' + race_event.short_name)
+
+            return HttpResponseRedirect(reverse('upload_race', kwargs={'season_id': selected_season.pk}))
+        else:
+            messages.error(request, 'input invalid')
 
     # if a GET (or any other method) we'll create a blank form
     else:
-        form = UploadRaceForm()
-
-    return render(request, 'upload_race_form.html', {'form': form})
+        form = UploadRaceForm(initial = {'season':selected_season})
+        return render(request, 'upload_race_form.html', {'form': form, 'selected_season': selected_season})
 
 @staff_member_required
 def update_race(request, race_id):
@@ -282,8 +308,6 @@ def update_race(request, race_id):
 
 
 def publish_tipps(request, race_id):
-    race_event = get_object_or_404(RaceEvent, pk=race_id)
-
     race_event = fis_connector.get_race_results(race_id)
 
     if not race_event.start_date_in_past:
@@ -350,7 +374,7 @@ def finalize_race(request, race_id):
     messages.success(request, "{} was finalized".format(race_event))
     return HttpResponseRedirect(race_event.get_absolute_url())
 
-class PointAdjustmentListView(CreateView):
+class PointAdjustmentListView(SeasonContextMixin, CreateView):
 
     
     form_class = PointAdjustmentForm
@@ -363,7 +387,7 @@ class PointAdjustmentListView(CreateView):
 
     def get_context_data(self, **kwargs):
         context = super(PointAdjustmentListView, self).get_context_data(**kwargs)
-        context['point_adjustment_list'] = PointAdjustment.objects.all().annotate(
+        context['point_adjustment_list'] = context['selected_season'].points_adjustments.annotate(
             sign=Case(
                 When(points__gt=0, then=Value('positive')),
                 default=Value('negative'),
@@ -376,9 +400,9 @@ class PointAdjustmentListView(CreateView):
         return context
 
 @staff_member_required
-def deletePointAdjustment(request, adjustment_id):
+def deletePointAdjustment(request, season_id, adjustment_id):
     get_object_or_404(PointAdjustment, pk=adjustment_id).delete()
-    return redirect('point_adjustments')
+    return redirect('point_adjustments', season_id=season_id)
 
 class AboutView(TemplateView):
     template_name = "about.html"

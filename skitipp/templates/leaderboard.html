@@ -10,9 +10,10 @@
 
 {% block page_content %}
 
-{% selected_season as selected_season_1 %}
+{% get_selected_season as selected_season_1 %}
 <div>
     <h2>{{ selected_season_1 }} Season</h2>
+    <h4>{{ discipline }} <h4>
 </div>
 
 <div id="leaderboard" class="display">
@@ -21,7 +22,7 @@
 {% selected_season_is_current_season as is_current_season %}
 {% if user.is_staff and is_current_season %}
 <div>
-    <a class="btn btn-primary mb-2" href="{% url 'rescore_all_races' %}" role="button">Rescore all Races</a>
+    <a class="btn btn-primary mb-2" href="{% url 'rescore_all_races' selected_season_1.pk %}" role="button">Rescore all Races</a>
 </div>
 {% endif %}
 
@@ -38,9 +39,10 @@ var alleine_map = []
 var no_tipp_cells = []
 var tipped_cells = []
 
+
 $(document).ready(function() {
     $.ajax({
-            "url": '{% url 'leaderboard_data' %}',
+            "url": '{% url 'leaderboard_data' selected_season.pk discipline %}',
             "success": function(json) {
                 var tableHeaders = ""
                 var columns1 = []

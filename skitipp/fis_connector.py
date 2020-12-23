@@ -5,6 +5,9 @@ from dateutil.parser import parse
 import dateutil.parser as dp
 import re
 
+from django.shortcuts import get_object_or_404
+
+
 from skitipp.models import RaceEvent, Racer, RaceCompetitor
 
 def create_short_name(race_name, race_kind):
@@ -24,7 +27,8 @@ def create_short_name(race_name, race_kind):
 
     return abrv_name.strip() + "_" + abrv_kind
 
-def extract_race_info(tree, fis_race_id):
+def extract_race_info(tree, fis_race_id, season=None):
+
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
 
@@ -49,7 +53,8 @@ def extract_race_info(tree, fis_race_id):
     print(race_short_name, race_name, race_kind, race_date_time)
 
     (race_event, created) = RaceEvent.objects.get_or_create(fis_id=fis_race_id, defaults={
-        "location":race_name, "kind":race_kind, "race_date":race_date_time, 'start_list_length':30
+        "location":race_name, "kind":race_kind, "race_date":race_date_time, 'start_list_length':30,
+        "season": season
     })
     if not race_event.finished:
         race_event.race_date = race_date_time #only update race time if race isn't finished to allow editing of date
@@ -60,7 +65,7 @@ def extract_race_info(tree, fis_race_id):
         race_event.short_name = race_short_name
         race_event.save()
 
-    return race_event
+    return (race_event, created)
 
 def get_results_html_table(tree):
     return tree.xpath('//div[@id="events-info-results"]')[0]
@@ -158,14 +163,15 @@ def results_published(tree):
     table_header = tree.xpath('.//div[@id="ajx_results"]//h3')[0].text
     return table_header in ['OFFICIAL RESULTS' , 'UNOFFICIAL RESULTS', 'UNOFFICIAL RESULTS (PARTIAL)']
 
-def get_race_results(fis_race_id):
+def get_new_race_results(fis_race_id, season):
 
     fis_base_link = 'https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={}'
     
     page = requests.get(fis_base_link.format(fis_race_id))
     tree = html.fromstring(page.content)
 
-    race_event = extract_race_info(tree, fis_race_id)
+    (race_event, created) = extract_race_info(tree, fis_race_id, season)
+
     #delete previous competitors from race
     RaceCompetitor.objects.filter(race_event=race_event).delete()
 
@@ -178,7 +184,14 @@ def get_race_results(fis_race_id):
     else:
         print("Official results not yet published")
 
+    return (race_event, created)
+
+def get_race_results(fis_race_id):
+
+    race_event = get_object_or_404(RaceEvent, fis_id=fis_race_id)
+    race_event, created = get_new_race_results(race_event.fis_id, race_event.season)
+
     return race_event
 
 if __name__ == '__main__':
-    get_race_results(95527)
+    get_race_results(95527, 1)

@@ -210,5 +210,5 @@ class PointAdjustment(models.Model):
     points = models.FloatField(null=False, help_text="(+/-)")
 
     def get_absolute_url(self):
-        return reverse('point_adjustments')
+        return reverse('point_adjustments', kwargs={'season_id': self.season.pk})
 

@@ -1,6 +1,5 @@
 
 from skitipp.models import Season
-from skitipp.views import get_selected_season
 
 from django import template
 
@@ -9,15 +8,18 @@ register = template.Library()
 @register.inclusion_tag('includes/nav_season_list.html', takes_context=True)
 def nav_seasons_list(context):
     return {
-        'selected_season': get_selected_season(context.request),
+        'selected_season' : context['selected_season'],
         'seasons': Season.objects.all(),
     }
 
 @register.simple_tag(takes_context=True)
-def selected_season(context):
-    return get_selected_season(context.request)
+def get_selected_season(context):
+    return context['selected_season']
 
 @register.simple_tag(takes_context=True)
 def selected_season_is_current_season(context):
-    return get_selected_season(context.request) == Season.objects.filter(current=True).first()
+    return 'selected_season' in context and context['selected_season'] == Season.objects.filter(current=True).first()
 
+@register.simple_tag
+def get_disciplines():
+    return ["Slalom", "Giant Slalom", "Super G", "Downhill", "Alpine combined"]
