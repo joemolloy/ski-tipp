@@ -451,10 +451,12 @@ def login_view(request):
 
 def register(request):
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = CustomSignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
             user.is_active = False
+            user.email = form.cleaned_data.get('email')
+
             user.save()
 
             username = form.cleaned_data.get('username')
