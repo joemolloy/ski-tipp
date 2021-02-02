@@ -24,13 +24,14 @@
 
 <div class="row">
     <div class="col-sm-10 col-md-6">
-        <div class="row">
-            <div class="col">
-            <h1> Tipp for {{ race_event.location }} </h1>
-            <h2> {{ race_event.kind }} </h2>
-            <h3> {{ race_event.race_date|date }} </h3>
+        <div class="row row-padding">
+            <div class="col-auto">
+            {% with race_event as object %}
+                {% include "includes/race_info_panel.html" %}
+            {% endwith %}
             </div>
-        </div>
+            </div>
+        <hr>
         <form method="post">
 
             {% for hidden_field in form.hidden_fields %}

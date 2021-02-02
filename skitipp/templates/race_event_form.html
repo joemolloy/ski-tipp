@@ -19,6 +19,11 @@
                 <button type="submit" class="btn btn-primary mb-2">Save Changes</button>
             </div>
         </form>
+
+        <a href="{% url 'delete_race' form.instance.pk %}">
+            <button type="button" class="btn btn-danger">Delete</button>
+        </a>
+
     </div>
 </div>
 

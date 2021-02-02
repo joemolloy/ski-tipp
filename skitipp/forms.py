@@ -34,7 +34,29 @@ class RaceEventForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = RaceEvent
 
-        fields = ['location', 'kind', 'race_date', 'in_progress', 'finished', 'cancelled', 'points_multiplier', 'short_name']
+        fields = ['location', 'kind', 'race_date', 'points_multiplier', 'short_name', 'season', 'in_progress', 'finished', 'cancelled']
+        
+class SeasonEditForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = Season
+        fields = ['name', 'start_date', 'end_date', 'tippers', 'current']
+        widgets = {
+            'tippers' : forms.CheckboxSelectMultiple()
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(BootstrapFormMixin, self).__init__(*args, **kwargs)
+
+        self.fields['tippers'].widget.attrs.update({'class': ''})
+
+
+    def save(self):
+        s1 = super().save(self)
+        #print(self.model)
+        if s1.current:
+            Season.objects.exclude(pk=s1.pk).update(current=False)   
+        return s1
+
         
 class TippForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:

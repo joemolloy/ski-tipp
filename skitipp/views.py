@@ -80,6 +80,9 @@ class RaceListView(LoginRequiredMixin, SeasonContextMixin, ListView):
 
         #messages.success(self.request, "Welcome to ski-tipp!")
         current_season = Season.objects.filter(current=True).first()
+        if current_season is None:
+            current_season = Season.objects.all().last()
+
         selected_season = Season.objects.filter(pk=self.kwargs.get('season_id', current_season.pk)).first()
         #annotate if tipp was made for this race
         valid_tipp = Tipp.objects.filter(
@@ -143,6 +146,11 @@ class RaceResultsView(LoginRequiredMixin, SeasonContextMixin, DetailView):
     template_name = 'race_event_results.html'
     model = RaceEvent
 
+class SeasonEditView(LoginRequiredMixin, SeasonContextMixin, UpdateView):
+    template_name = 'season_edit_form.html'
+    model = Season
+    form_class = SeasonEditForm
+
 
 
 class TippCreateView(LoginRequiredMixin, SeasonContextMixin, CreateView):
@@ -205,7 +213,7 @@ def leaderboardDataView(request, season_id, race_kind):
     if race_kind != 'Overall':
         all_races = all_races.filter(kind=race_kind)
 
-    ranked_users = User.objects.all().annotate(
+    ranked_users = selected_season.tippers.annotate(
         preseason_adj=Coalesce(Sum('points_adjustments__points', 
             filter=Q(points_adjustments__preseason=True)&Q(points_adjustments__season=selected_season)), Value(0)),
         season_adj=Coalesce(Sum('points_adjustments__points', 

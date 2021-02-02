@@ -50,6 +50,10 @@ class Season(models.Model):
     def select_season_url(self):
         return reverse('select_season', kwargs={'pk': self.pk})
 
+    def get_absolute_url(self):
+        return reverse("race_list", kwargs={"season_id": self.pk})
+    
+
 
 class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)

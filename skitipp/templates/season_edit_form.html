@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<style type="text/css">
+    select#id_tippers {
+        height: 400px
+    }
+</style>
+
+<div class="row">
+    <div class="col-sm-10 col-md-4">
+        <h3>Edit Season</h3>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                {{ form.as_p }}
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary mb-2">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -20,8 +20,12 @@ urlpatterns = [
     path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
       
     path('season/<int:season_id>/race/create/', views.upload_race, name='upload_race'),
-
+    
     path('season/<int:season_id>/race/<int:race_id>/manual_tipp/<tipper>', views.ManualTippView.as_view(), name='manual_tipp'),
+
+
+    path('season/<int:pk>/edit/', views.SeasonEditView.as_view(), name='edit_season'),
+
 
 
     path('season/<int:season_id>/leaderboard/rescore_races/', views.rescore_all_races, name='rescore_all_races'),
