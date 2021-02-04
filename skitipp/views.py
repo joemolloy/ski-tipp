@@ -17,7 +17,7 @@ from django.db.utils import OperationalError
 
 import datetime
 
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponse
 from django.urls import reverse
 
 from dal import autocomplete
@@ -33,10 +33,15 @@ from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Se
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
 
+from django.core.mail import send_mail
+
+
 from skitipp import tipp_scorer
 
 import logging
 from operator import itemgetter
+
+import inspect
 
 def select_season(request, season_id):
     get_object_or_404(Season, pk=season_id)
@@ -460,6 +465,7 @@ def login_view(request):
 def register(request):
     if request.method == "POST":
         form = CustomSignUpForm(request.POST)
+
         if form.is_valid():
             user = form.save()
             user.is_active = False
@@ -467,18 +473,70 @@ def register(request):
 
             user.save()
 
+            email_admin_about_registration(request, user)
+
             username = form.cleaned_data.get('username')
             logging.info("User created: " + str(user))
             welcome_text = "Hi {}, your registration was successful, an admin must activate your account before you can login"
             messages.info(request, welcome_text.format(username) )
        
             return redirect("login")
+    else:
+        form = CustomSignUpForm
 
-        else:
-            logging.error("User not valid")
-            messages.error(request, "Registration unsuccessful" )
-
-    form = CustomSignUpForm
     return render(request = request,
                   template_name = "registration/sign_up.html",
                   context={"form":form})
+
+def email_admin_about_registration(request, user):
+        from django.core.mail import send_mail
+        from django.urls import reverse
+
+        approval_link = request.build_absolute_uri(reverse('activate_user', kwargs=dict(username=user.username)))
+
+        approver_email = User.objects.filter(username='Donkunho').get().email
+        if approver_email is None or approver_email == '':
+            approver_email = User.objects.filter(username='joemolloy').get().email
+
+        send_mail(
+            subject='There is a new registration on Ski-tipp.org',
+            message=f'''{user.username} has registered on ski-tipp.org.
+
+            Their email address is {user.email} 
+
+            To approve the account, use the following link: {approval_link}''',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list = [approver_email],
+            fail_silently=False,
+        )
+
+@staff_member_required
+def activate_user(request, username):
+    user = get_object_or_404(User, username=username)
+    user.is_active = True
+    user.save()
+
+    login_url = request.build_absolute_uri(reverse('login'))
+
+    send_mail(
+            subject='Ihr Konto auf Ski-tipp.org wurde aktiviert',
+            message=inspect.cleandoc(
+                f'''Hallo {user.username}
+            
+                Ihr Konto auf ski-tipp.org ist jetzt aktiv.
+
+                Ihr Username zum einloggen is {user.username}.
+                Ski können hier einloggen: {login_url}
+
+                mit freundlichen Grüssen
+                Ski-tipp.org
+
+                '''
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list = [user.email],
+            fail_silently=False,
+        )
+
+    return HttpResponse(f'The account for {username} has been activated')
+

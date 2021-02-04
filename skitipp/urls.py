@@ -46,4 +46,6 @@ urlpatterns = [
         views.RacerAutocomplete.as_view(),
         name='racer-autocomplete',
     ),
+
+    path('user/activate/<str:username>/', views.activate_user, name='activate_user')
 ]

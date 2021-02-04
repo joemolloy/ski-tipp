@@ -7,6 +7,7 @@ from dal import autocomplete
 
 from .models import RaceEvent, Tipp, PointAdjustment, Season
 import logging
+from django.conf import settings
 
 class BootstrapFormMixin(object):
 
@@ -134,6 +135,13 @@ class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
     def save(self, commit=True):
         user = super(CustomSignUpForm, self).save(commit=False)
         user.is_active = False
+
+        default_season = Season.objects.all().order_by('pk').last()
+
         if commit:
             user.save()
+
+            default_season.tippers.add(user)
+            default_season.save()
         return user
+

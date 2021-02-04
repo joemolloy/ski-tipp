@@ -132,6 +132,7 @@ if 'AWS_ACCESS_KEY_ID' in os.environ:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
     EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
+    DEFAULT_FROM_EMAIL = 'joe.m34@gmail.com'
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
