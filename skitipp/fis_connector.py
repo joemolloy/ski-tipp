@@ -134,7 +134,7 @@ def get_dnf_racers(tree, race_event):
     dnf_athletes = []
 
     for header, table in dnf_tables:
-        if not header in ['Did not qualify', 'Did not start 1st run', 'Did not start']:
+        if (header is not 'Did not qualify') and ('Did not start' not in header):
             print (header)
             athlete_row = table.xpath('.//div[@class="g-row justify-sb"]') 
             for row in athlete_row:
