@@ -110,7 +110,13 @@ def get_finishers(tree, race_event):
         fis_id = int(cols[2])
         name = str(cols[3]).strip()
 
-        racer, created = Racer.objects.get_or_create(fis_id=fis_id, name=name)
+        print(rank, start_number, fis_id, name)
+
+        racer, created = Racer.objects.get_or_create(fis_id=fis_id, defaults=dict(name=name))
+
+        if racer.name != name:
+            racer.name = name
+            racer.save()
         
         RaceCompetitor.objects.update_or_create(
             race_event_id=race_event.fis_id, 
@@ -134,7 +140,7 @@ def get_dnf_racers(tree, race_event):
     dnf_athletes = []
 
     for header, table in dnf_tables:
-        if (header is not 'Did not qualify') and ('Did not start' not in header):
+        if (header is not 'Did not qualify') and ('Did not start' not in header) and ('qualification race' not in header):
             print (header)
             athlete_row = table.xpath('.//div[@class="g-row justify-sb"]') 
             for row in athlete_row:
@@ -143,7 +149,12 @@ def get_dnf_racers(tree, race_event):
                 start_number = int(cols[0])
                 fis_id = int(cols[1])
                 name = str(cols[2]).strip()
-                racer, created = Racer.objects.get_or_create(fis_id=fis_id, name=name)
+                racer, created = Racer.objects.get_or_create(fis_id=fis_id, defaults=dict(name=name))
+
+                if racer.name != name:
+                    racer.name = name
+                    racer.save()
+
                 if start_number <= race_event.start_list_length:
                     RaceCompetitor.objects.update_or_create(
                         race_event_id=race_event.fis_id, 
