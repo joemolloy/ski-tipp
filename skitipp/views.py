@@ -256,14 +256,11 @@ def leaderboardDataView(request, season_id, race_kind):
     #rank userboard
     leaderboard.sort(key=itemgetter('total'), reverse=True)
 
-    score_previous_rank = None
-    current_rank = 0
-    for u in leaderboard:
-        user_score = u['total']
-        if score_previous_rank is None or user_score < score_previous_rank:
-            current_rank += 1
-            score_previous_rank = user_score
-        u['rank'] = current_rank
+    totals = [u['total'] for u in leaderboard]
+    ranks = [sorted(totals, reverse=True).index(x) + 1 for x in totals]
+
+    for i, u in enumerate(leaderboard):
+        u['rank'] = ranks[i]
 
     data = { "races" : race_list, "tippers" : leaderboard }
 
