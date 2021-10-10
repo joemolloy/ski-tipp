@@ -20,6 +20,7 @@ urlpatterns = [
     path('race/<int:race_id>/finalize/', views.finalize_race, name='finalize_race'),
       
     path('season/<int:season_id>/race/create/', views.upload_race, name='upload_race'),
+    path('season/<int:season_id>/race/create_bulk/', views.upload_races_bulk, name='upload_races_bulk'),
     
     path('season/<int:season_id>/race/<int:race_id>/manual_tipp/<tipper>', views.ManualTippView.as_view(), name='manual_tipp'),
 

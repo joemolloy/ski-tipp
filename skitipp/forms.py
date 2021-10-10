@@ -113,6 +113,12 @@ class UploadRaceForm(BootstrapFormMixin, forms.Form):
     season = forms.ModelChoiceField(Season.objects.all(), label='Season')
     fis_id = forms.IntegerField(label='FIS ID')
 
+
+class UploadRaceBulkForm(BootstrapFormMixin, forms.Form):
+    season = forms.ModelChoiceField(Season.objects.all(), label='Season')
+    calendar_link = forms.CharField(label='Calendar URL')
+    
+
 class PointAdjustmentForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = PointAdjustment
@@ -144,4 +150,3 @@ class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
             default_season.tippers.add(user)
             default_season.save()
         return user
-
