@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+import json
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,16 +27,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 DEBUG = os.environ.get('DJANGO_DEBUG', "True")
 
-
-if 'RDS_DB_NAME' in os.environ:
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-elif 'ec2' in os.environ:
-    print('running on signle instance')
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'istv-dev.eu-central-1.elasticbeanstalk.com', '.ski-tipp.org', '52.29.235.120']
+ALLOWED_HOSTS = json.loads(os.environ['ALLOWED_HOSTS'], "['localhost']")
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
@@ -96,31 +88,18 @@ WSGI_APPLICATION = 'istv.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
-if 'RDS_DB_NAME' in os.environ:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': os.environ['RDS_DB_NAME'],
-            'USER': os.environ['RDS_USERNAME'],
-            'PASSWORD': os.environ['RDS_PASSWORD'],
-            'HOST': os.environ['RDS_HOSTNAME'],
-            'PORT': os.environ['RDS_PORT'],
-        }
-    }
-else:
+print ('loading database from :' + os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')))
 
-    print ('loading database from :' + os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')))
-
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')),
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.environ.get('DB_LOCATION', os.path.join(BASE_DIR, 'ski-tipp-db.sqlite3')),
     }
+}
 
 if 'AWS_ACCESS_KEY_ID' in os.environ:
     EMAIL_BACKEND = 'django_ses.SESBackend'
-    DEFAULT_FROM_EMAIL = 'no-reply@ski-tipp.org'
+    DEFAULT_FROM_EMAIL = os.environ['AWS_FROM_EMAIL']
 
     AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
@@ -132,7 +111,7 @@ if 'AWS_ACCESS_KEY_ID' in os.environ:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
     EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
-    DEFAULT_FROM_EMAIL = 'joe.m34@gmail.com'
+    DEFAULT_FROM_EMAIL = 'bob@gmail.com'
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
