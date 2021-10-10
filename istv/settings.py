@@ -27,7 +27,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 DEBUG = os.environ.get('DJANGO_DEBUG', "True")
 
-ALLOWED_HOSTS = json.loads(os.environ.get(['ALLOWED_HOSTS'], "['localhost']"))
+ALLOWED_HOSTS = json.loads(os.environ.get('ALLOWED_HOSTS', "['localhost']"))
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
