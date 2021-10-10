@@ -392,7 +392,7 @@ def publish_tipps(request, race_id):
 def update_wc_start_list(request):
     fis_connector.update_ws_start_list()
     messages.info(request, "Racers updated from FIS WC Startlist")
-    return HttpResponseRedirect(reverse('race_list'))
+    return HttpResponseRedirect(reverse('race_list_current'))
 
 @staff_member_required
 def rescore_all_races(request):

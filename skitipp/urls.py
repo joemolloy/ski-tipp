@@ -40,7 +40,7 @@ urlpatterns = [
     path('season/select/<int:season_id>/', views.select_season, name='select_season'),
     path('season/select/current/', views.select_current_season, name='select_current_season'),
 
-    path('season/<int:season_id>/update_racers/', views.update_wc_start_list, name='update_racers'),
+    path('racers/update_start_list/', views.update_wc_start_list, name='update_racers'),
 
     path(
         r'racer-autocomplete/',
