@@ -8,7 +8,13 @@
         <div class="dropdown-menu" aria-labelledby="seasonDropdownMenuLink">
         {% for season in seasons %}
             {% if season != selected_season %}
-            <a class="dropdown-item {% if season.current %} current_season_nav {% endif %} " href="{% url 'select_season' season.pk %}">{{ season }}</a>
+            <a class="dropdown-item {% if season.current %} current_season_nav {% endif %} " 
+                href="{% url 'select_season' season.pk %}">
+                <span style='float:left;'>{{ season }}</span>
+                {% if season.current %} 
+                    <span class="badge badge-success" style='float:right;'> current </span> 
+                {% endif %}
+            </a>
             {% endif %}
         {% endfor %}
         </div>
