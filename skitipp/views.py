@@ -5,6 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+from django.contrib.messages.views import SuccessMessageMixin
 
 from django.views.generic.base import ContextMixin
 
@@ -152,10 +153,11 @@ class RaceResultsView(LoginRequiredMixin, SeasonContextMixin, DetailView):
     template_name = 'race_event_results.html'
     model = RaceEvent
 
-class SeasonEditView(LoginRequiredMixin, SeasonContextMixin, UpdateView):
+class SeasonEditView(LoginRequiredMixin, SuccessMessageMixin, SeasonContextMixin, UpdateView):
     template_name = 'season_edit_form.html'
     model = Season
     form_class = SeasonEditForm
+    success_message = "Season %(name)s was successfully updated"
 
 
 

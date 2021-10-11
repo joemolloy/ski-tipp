@@ -52,7 +52,7 @@ class Season(models.Model):
         return reverse('select_season', kwargs={'pk': self.pk})
 
     def get_absolute_url(self):
-        return reverse("race_list", kwargs={"season_id": self.pk})
+        return reverse("edit_season", kwargs={"pk": self.pk})
     
 
 
