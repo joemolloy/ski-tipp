@@ -5,6 +5,9 @@ from skitipp.models import RaceEvent
 
 
 def get_season_events(calendar_url, season_id):    
+    if not calendar_url:
+        return []
+        
     print('loading events from ' +  calendar_url)
     existing_race_ids = RaceEvent.objects.filter(season=season_id).values_list('pk', flat=True)
     print(existing_race_ids)
