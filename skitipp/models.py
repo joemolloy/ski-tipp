@@ -43,6 +43,7 @@ class Season(models.Model):
     end_date = models.DateField(null=False)
     tippers = models.ManyToManyField('auth.User')
     current = models.BooleanField(default=False)
+    fis_calendar = models.URLField(null=True, max_length=500)
 
     def __str__(self):
         return self.name

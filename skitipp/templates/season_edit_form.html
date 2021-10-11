@@ -1,5 +1,51 @@
 {% extends "base.html" %}
 
+{% block head %}
+
+
+<script>
+
+    $( document ).ready(function() {    
+            var serializedData = $('#bulk-race-form').serialize();
+    
+            console.log("form submitted!")  // sanity check
+            
+            $.ajax({
+                url : "{% url 'upload_races_bulk' selected_season.pk %}", // the endpoint
+                type : "GET", // http method
+                data: serializedData, // data sent with the post request
+        
+                // handle a successful response
+                success : function(response) {
+                    console.log("success"); // another sanity check
+                    console.log(response)
+                    $('#race-bulk-edit-panel').html(response)
+                },
+                error : function(response) {                
+                    console.log("failed"); // another sanity check
+                    error_message = response.responseJSON['error']
+                    error_div = `<div class="alert  alert-dismissible fade show alert-danger" role="alert">
+                                    ${error_message}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>` 
+                    $('#request-errors').append(error_div)
+                },
+                beforeSend: function() {
+                    $("#imgSpinner1").show();
+                },
+                // hides the loader after completion of request, whether successfull or failor.             
+                complete: function() {
+                    $("#imgSpinner1").hide();
+                },
+            });
+    
+        });
+    </script>
+
+{% endblock %}
+
 {% block page_content %}
 
 <style type="text/css">
@@ -9,7 +55,7 @@
 </style>
 
 <div class="row">
-    <div class="col-sm-10 col-md-4">
+    <div class="col-sm-12 col-md-6">
         <h3>Edit Season</h3>
         <form method="post">
             {% csrf_token %}
@@ -20,6 +66,9 @@
                 <button type="submit" class="btn btn-primary mb-2">Save Changes</button>
             </div>
         </form>
+    </div>
+    <div class="col-sm-12 col-md-6">
+        {% include 'upload_race_bulk_form.html' %}
     </div>
 </div>
 

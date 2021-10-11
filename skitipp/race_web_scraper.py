@@ -5,7 +5,7 @@ from skitipp.models import RaceEvent
 
 
 def get_season_events(calendar_url, season_id):    
-    print('test ' +  calendar_url)
+    print('loading events from ' +  calendar_url)
     existing_race_ids = RaceEvent.objects.filter(season=season_id).values_list('pk', flat=True)
     print(existing_race_ids)
 
@@ -46,7 +46,7 @@ def get_races_for_event(event_url, existing_race_ids):
         race['fis_id'] = int(re.search(r'raceid=(\d+)', race['link']).group(1))
         race['exists'] = race['fis_id'] in existing_race_ids
 
-        if race['race_type'] != 'Parallel' and race['race_category']  == 'WC' and race['race_gender'] == 'M':
+        if race['race_category']  == 'WC' and race['race_gender'] == 'M':
             races.append(race)    
         print(race)
     return races

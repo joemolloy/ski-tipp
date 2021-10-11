@@ -40,7 +40,7 @@ class RaceEventForm(BootstrapFormMixin, forms.ModelForm):
 class SeasonEditForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Season
-        fields = ['name', 'start_date', 'end_date', 'tippers', 'current']
+        fields = ['name', 'start_date', 'end_date', 'fis_calendar', 'current', 'tippers']
         widgets = {
             'tippers' : forms.CheckboxSelectMultiple()
         }

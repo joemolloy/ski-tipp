@@ -19,6 +19,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'favicon-16x16.png' %}">
     <link rel="manifest" href="{% static 'site.webmanifest' %}">
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
     {% block head %}
     {% endblock %}
 </head>
@@ -82,7 +84,6 @@
                 </a>
                 <div class="dropdown-menu  dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
                 {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
-                {% if user.is_staff %} <a class="dropdown-item" href="{% url 'upload_races_bulk' selected_season.pk %}">Add Races</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'update_racers' %}">Update Start Lists</a> {% endif %}
                 <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                 </div>
@@ -108,18 +109,16 @@
 
 <div class="container">
     <div class="row mt-4">
-    {% if messages %}
-        <div class="col-md-6">
-        {% for message in messages %}
-                <div {% if message.tags %} class="alert  alert-dismissible fade show alert-{{ message.tags }}" {% endif %} role="alert">
-                    {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-        {% endfor %}
-        </div>
-    {% endif %}
+      <div id="request-errors" class="col-md-12">
+          {% for message in messages %}
+                  <div {% if message.tags %} class="alert  alert-dismissible fade show alert-{{ message.tags }}" {% endif %} role="alert">
+                      {{ message }}
+                      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                          <span aria-hidden="true">&times;</span>
+                      </button>
+                  </div>
+          {% endfor %}
+      </div>
     </div>
 
     {% block page_content %}{% endblock %}

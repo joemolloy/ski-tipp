@@ -321,48 +321,49 @@ def upload_races_bulk(request, season_id):
     selected_season = get_object_or_404(Season, pk=season_id)
     # if this is a POST request we need to process the form data
 
-    if request.method == 'POST' and 'link_submit' in request.POST:
-        # create a form instance and populate it with data from the request:
-        form = UploadRaceBulkForm(request.POST)
-        # check whether it's valid:
-        if form.is_valid():
-            #download calendar and format for page
-            calendar_link = form.cleaned_data['calendar_link']
-            events = race_web_scraper.get_season_events(calendar_link, season_id)
+    print(request.POST)
 
+    if request.is_ajax and request.method == 'GET':
+        
+        #download calendar and format for page
+        calendar_link = get_object_or_404(Season, pk=season_id).fis_calendar
+        events = race_web_scraper.get_season_events(calendar_link, season_id)
+
+        if events:
             return render(request, 'upload_race_bulk_form.html', 
-                {'form': form, 'selected_season': selected_season, 'events': events})
+                {'selected_season': selected_season, 'events': events})
         else:
-            messages.error(request, 'input invalid')
-    elif request.method == 'POST' and 'races_submit' in request.POST:
-        print('loading races')
-        form = UploadRaceBulkForm(request.POST)
+            response = http.JsonResponse({"error": "Please add a valid calendar link to the season"})
+            response.status_code = 400 
+            return response
 
+    elif request.is_ajax and request.method == 'POST':
+        print('loading races')
+        
         created_races = []
         existing_races = []
-        if form.is_valid():
-            race_season = form.cleaned_data['season']
-            #add all the requested races if they don't exist already
-            for k,v in request.POST.items():
-                print(k,v)
-                if k.startswith('race-checkbox-') and v == 'on':
-                    race_fis_id = int(k.replace('race-checkbox-',''))
-                    race_event, created = fis_connector.get_new_race_results(race_fis_id, race_season)
-                    if created:
-                        created_races.append(race_event.short_name)
-                    else:
-                        existing_races.append(race_event.short_name)
+        
+        #add all the requested races if they don't exist already
+        for k,v in request.POST.items():
+            print(k,v)
+            if k.startswith('race-checkbox-') and v == 'on':
+                race_fis_id = int(k.replace('race-checkbox-',''))
+                race_event, created = fis_connector.get_new_race_results(race_fis_id, selected_season)
+                if created:
+                    created_races.append(race_event.short_name)
+                else:
+                    existing_races.append(race_event.short_name)
 
-            if created_races:
-                messages.success(request, 'The races ' + ', '.join(created_races) + ' were created')
-            if existing_races:
-                messages.warning(request, 'The races ' + ', '.join(existing_races) + ' already existed')
+        if created_races:
+            messages.success(request, 'The races ' + ', '.join(created_races) + ' were created')
+        if existing_races:
+            messages.warning(request, 'The races ' + ', '.join(existing_races) + ' already existed')
 
-            return redirect('race_list', season_id=race_season.pk)
+        return redirect('edit_season', selected_season.pk)
     # if a GET (or any other method) we'll create a blank form
     else:
         form = UploadRaceBulkForm(initial = {'season':selected_season})
-        return render(request, 'upload_race_bulk_form.html', {'form': form, 'selected_season': selected_season})
+        return render(request, 'upload_race_bulk_form.html', {'race_form': form, 'selected_season': selected_season})
 
 
 
