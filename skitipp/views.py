@@ -10,7 +10,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.views.generic.base import ContextMixin
 
 from django.db import models
-from django.db.models import BooleanField
+from django.db.models import BooleanField, FloatField
 from django.db.models import Exists, OuterRef, Sum, Count, Case, CharField, Value, When, Q, F, Subquery, Value
 from django.db.models.functions import Coalesce
 
@@ -58,6 +58,9 @@ class SeasonContextMixin(ContextMixin):
         context = super().get_context_data(**kwargs)
 
         season_id = self.kwargs.get('season_id')
+        if not season_id and self.object:
+            season_id = self.object.pk
+        print('context: ' + str(season_id))
 
         context['selected_season'] = Season.objects.all().annotate(
             is_selected=Case(When(pk=season_id, then=Value(True)),default=Value(False), output_field=BooleanField())
@@ -79,18 +82,19 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
 
         return qs
 
-class RaceListView(LoginRequiredMixin, SeasonContextMixin, ListView):
+class RaceListView(LoginRequiredMixin, ListView):
     template_name = 'race_list.html'
     model = RaceEvent
 
     def get_queryset(self):
 
-        #messages.success(self.request, "Welcome to ski-tipp!")
         current_season = Season.objects.filter(current=True).first()
         if current_season is None:
             current_season = Season.objects.all().last()
 
         selected_season = Season.objects.filter(pk=self.kwargs.get('season_id', current_season.pk)).first()
+        self.kwargs['selected_season'] = selected_season
+
         #annotate if tipp was made for this race
         valid_tipp = Tipp.objects.filter(
             race_event=OuterRef('pk'),
@@ -112,9 +116,10 @@ class RaceListView(LoginRequiredMixin, SeasonContextMixin, ListView):
     def get_context_data(self, **kwargs):
 
         #selected_season = Season.objects.filter(pk=self.kwargs.get('season_id', 2)).first()
-        print('racelist', self.kwargs)
+        print('racelist', self.kwargs['selected_season'])
         context = super(RaceListView, self).get_context_data(**kwargs)
         context['race_list'] = 'active'
+        context['selected_season'] = self.kwargs['selected_season']
         #context['selected_season'] = selected_season
         return context
 
@@ -158,6 +163,8 @@ class SeasonEditView(LoginRequiredMixin, SuccessMessageMixin, SeasonContextMixin
     model = Season
     form_class = SeasonEditForm
     success_message = "Season %(name)s was successfully updated"
+
+
 
 
 
@@ -208,7 +215,7 @@ def leaderboardDataView(request, season_id, race_kind):
 
     selected_season = get_object_or_404(Season,pk=season_id)
     if race_kind != 'Overall' and not selected_season.races.filter(kind=race_kind).exists():
-        return HttpResponseNotFound('<h1>Page not found</h1>')
+        return http.HttpResponseNotFound('<h1>Page not found</h1>')
 
     best_tips = TippPointTally.objects.filter(race_event=OuterRef('pk')).filter(is_best_tipp=True)
 
@@ -223,9 +230,13 @@ def leaderboardDataView(request, season_id, race_kind):
 
     ranked_users = selected_season.tippers.annotate(
         preseason_adj=Coalesce(Sum('points_adjustments__points', 
-            filter=Q(points_adjustments__preseason=True)&Q(points_adjustments__season=selected_season)), Value(0)),
+            filter=Q(points_adjustments__preseason=True)&Q(points_adjustments__season=selected_season)), 
+            Value(0),
+            output_field=FloatField()),
         season_adj=Coalesce(Sum('points_adjustments__points', 
-        filter=Q(points_adjustments__preseason=False)&Q(points_adjustments__season=selected_season)), Value(0)),
+        filter=Q(points_adjustments__preseason=False)&Q(points_adjustments__season=selected_season)), 
+        Value(0),
+            output_field=FloatField()),
     ).values('id', 'username', 'preseason_adj', 'season_adj')
 
     #tally up the points for the race for each active user
