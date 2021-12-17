@@ -423,7 +423,7 @@ def rescore_all_races(request, season_id):
         else:
             tipp_scorer.score_race(race_event)
     
-    return redirect(reverse('leaderboard'))
+    return redirect(reverse('leaderboard', kwargs={'season_id' : season_id}))
 
 
 
