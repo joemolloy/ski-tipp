@@ -225,17 +225,34 @@ def leaderboardDataView(request, season_id, race_kind):
         alleine=Subquery(best_tips.values('tipper__username')[:1])
     ).order_by('race_date')
 
-    if race_kind != 'Overall':
+    is_overall = race_kind == 'Overall'
+
+    if not is_overall:
         all_races = all_races.filter(kind=race_kind)
+        applicable_points = [PointAdjustment.ApplicableTo.DISCIPLINES]
+    else:
+        applicable_points = [PointAdjustment.ApplicableTo.OVERALL]
+
+    applicable_points = [PointAdjustment.ApplicableTo.BOTH] + applicable_points
+
+    print('applicable points', applicable_points)
 
     ranked_users = selected_season.tippers.annotate(
         preseason_adj=Coalesce(Sum('points_adjustments__points', 
-            filter=Q(points_adjustments__preseason=True)&Q(points_adjustments__season=selected_season)), 
+            filter=
+                Q(points_adjustments__preseason=True) & 
+                Q(points_adjustments__season=selected_season) &
+                Q(points_adjustments__applicable_to__in=applicable_points)
+            ), 
             Value(0),
             output_field=FloatField()),
         season_adj=Coalesce(Sum('points_adjustments__points', 
-        filter=Q(points_adjustments__preseason=False)&Q(points_adjustments__season=selected_season)), 
-        Value(0),
+            filter=
+                Q(points_adjustments__preseason=False) & 
+                Q(points_adjustments__season=selected_season) &
+                Q(points_adjustments__applicable_to__in=applicable_points)
+            ), 
+            Value(0),
             output_field=FloatField()),
     ).values('id', 'username', 'preseason_adj', 'season_adj')
 

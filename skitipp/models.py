@@ -218,6 +218,17 @@ class PointAdjustment(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     season = models.ForeignKey('Season', related_name='points_adjustments', null=False, on_delete=models.CASCADE) 
 
+    class ApplicableTo(models.TextChoices):
+        BOTH = 'Both'
+        OVERALL = 'Overall'
+        DISCIPLINES = 'Disciplines'
+
+    applicable_to = models.CharField(
+        max_length=20,
+        choices=ApplicableTo.choices,
+        default=ApplicableTo.BOTH,
+    )
+
     points = models.FloatField(null=False, help_text="(+/-)")
 
     def get_absolute_url(self):

@@ -41,14 +41,19 @@
         {% for adjustment in season.list %}
         <div class="pa_card">
             <div class="pa_card_col">
-                <div class="pa_date"> {{ adjustment.created | date:"SHORT_DATE_FORMAT" }} </div>
-                <div class="pa_tipper"> {{ adjustment.tipper }} </div>
+                <div class="pa_date"> 
+                    {{ adjustment.created | date:"SHORT_DATE_FORMAT" }} 
+                </div>
+                <div class="pa_tipper"> <strong> {{ adjustment.tipper }} </strong> </div>
                 <div class="pa_reason"> {{ adjustment.reason }} </div>
             </div>
             <div class="pa_card_col">
                 {% if user.is_staff %}
                 <div class="pa_delete"> 
                     <a href="{% url 'delete_point_adjustment' selected_season.pk adjustment.pk %}" method="POST">x</a>
+                </div>
+                <div>
+                    <span class="badge badge-dark"> {{ adjustment.applicable_to }} </span>
                 </div>
                 {% endif %}
                 <div class="pa_points {{ adjustment.sign }}">  {{ adjustment.points }} </div>

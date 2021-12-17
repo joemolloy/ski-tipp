@@ -159,6 +159,7 @@ div.pa_card_col {
 }
 
 .pa_points {
+    text-align:right;
     margin-top:auto;
     font-weight: 700;
 }
