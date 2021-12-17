@@ -11,6 +11,10 @@ class RacerQuerySet(models.QuerySet):
     def competitors(self):
         return self.exclude(fis_id=0)
 
+class Tipper(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    mobile_number = models.CharField(max_length=20)
+
 class Racer(models.Model):
     fis_id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=100)
@@ -62,6 +66,8 @@ class RaceEvent(models.Model):
     location = models.CharField(max_length=200)
     kind = models.CharField(max_length=200)
     race_date = models.DateTimeField()
+
+    is_classic = models.BooleanField(default=False)
 
     cancelled = models.BooleanField(default=False)
     in_progress = models.BooleanField(default=False)
@@ -217,3 +223,7 @@ class PointAdjustment(models.Model):
     def get_absolute_url(self):
         return reverse('point_adjustments', kwargs={'season_id': self.season.pk})
 
+class SentReminder(models.Model):
+    tipper = models.ForeignKey('auth.User', related_name='sent_reminders', on_delete=models.CASCADE, null=False)
+    race_event = models.ForeignKey('RaceEvent', related_name='sent_reminders', on_delete=models.CASCADE)
+    sent_on = models.DateTimeField(auto_now_add=True)

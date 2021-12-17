@@ -35,7 +35,7 @@ class RaceEventForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = RaceEvent
 
-        fields = ['location', 'kind', 'race_date', 'points_multiplier', 'short_name', 'season', 'in_progress', 'finished', 'cancelled']
+        fields = ['location', 'kind', 'race_date', 'points_multiplier', 'short_name', 'is_classic', 'season', 'in_progress', 'finished', 'cancelled']
         
 class SeasonEditForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:

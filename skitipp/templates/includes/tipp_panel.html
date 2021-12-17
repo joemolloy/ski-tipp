@@ -67,7 +67,9 @@
                 <p><b> Rank Bonus: </b> {{ tipp.breakdown.bonus.ranking_bonus }} </p>
                 <p><b> Dnf Bonus: </b> {{ tipp.breakdown.bonus.dnf_bonus }} </p>
                 {% if  tipp.tipp_points_tally.is_best_tipp %} 
-                    <p><b> Alleine im Sieg: </b> {{ tipp.tipp_points_tally.is_best_tipp }} (+1)</p>
+                    <p><b> Alleine im Sieg: </b> 
+                        {{ tipp.tipp_points_tally.is_best_tipp }} 
+                        {% if tipp.race_event.is_classic %} (+2) {% else %} (+1) {% endif %}</p>
                 {% endif %}
                 <p><b> Race Multiplier: </b> {{ tipp.tipp_points_tally.points_multiplier }}x </p>
                 <hr />

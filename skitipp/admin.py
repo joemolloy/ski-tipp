@@ -25,7 +25,21 @@ class UserCreateForm(UserCreationForm):
                 )
         return email
 
+
+from skitipp.models import Tipper
+
+# Define an inline admin descriptor for Employee model
+# which acts a bit like a singleton
+class TipperInline(admin.StackedInline):
+    model = Tipper
+    can_delete = False
+    verbose_name_plural = 'tipper'
+
+
 class UserAdmin(UserAdmin):
+
+    inlines = (TipperInline,)
+
     add_form = UserCreateForm
     #prepopulated_fields = {'username': ('first_name' , 'last_name', )}
 

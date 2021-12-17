@@ -14,8 +14,9 @@ def score_race(race_event):
 
         #allinerseiger
         if len(best_tippers) == 1:
-            print ("Best tipper was {} (+1)".format(best_tippers[0].tipper))
-            best_tippers[0].bonus_points += 1
+            alleine_points = 2 if race_event.is_classic else 1
+            print ("Best tipper was {} (+{})".format(best_tippers[0].tipper, alleine_points))
+            best_tippers[0].bonus_points += alleine_points
             best_tippers[0].is_best_tipp = True
             best_tippers[0].save()
 
@@ -120,14 +121,14 @@ def dnf_points(tipp, race_event):
     points = 0
     if race_event.dnf_eligible:
         if tipp.alle_im_ziel and race_event.alle_im_ziel:
-            points += 1
+            points += 0.5
         elif race_event.dnfs.filter(racer=tipp.dnf).exists():
             points += 1
 
     return points
 
 def ranking_bonus_points(correct1, correct2, correct3):
-    return int(correct1) + int(correct2) + int(correct3)
+    return int(correct1) + int(correct2) * 0.5 + int(correct3) * 0.5
 
 def podium_bonus_points(tipp_on_podium1, tipp_on_podium2, tipp_on_podium3):
     number_correct = int(tipp_on_podium1) + int(tipp_on_podium2) + int(tipp_on_podium3)

@@ -140,7 +140,7 @@ def get_dnf_racers(tree, race_event):
     dnf_athletes = []
 
     for header, table in dnf_tables:
-        if (header is not 'Did not qualify') and ('Did not start' not in header) and ('qualification race' not in header):
+        if (header != 'Did not qualify') and ('Did not start' not in header) and ('qualification race' not in header):
             print (header)
             athlete_row = table.xpath('.//div[@class="g-row justify-sb"]') 
             for row in athlete_row:
@@ -155,12 +155,12 @@ def get_dnf_racers(tree, race_event):
                     racer.name = name
                     racer.save()
 
-                if start_number <= race_event.start_list_length:
-                    RaceCompetitor.objects.update_or_create(
-                        race_event_id=race_event.fis_id, 
-                        racer_id=racer.fis_id, 
-                        defaults={'start_number': start_number, 'is_dnf': True}
-                    )
+                #if start_number <= race_event.start_list_length:
+                RaceCompetitor.objects.update_or_create(
+                    race_event_id=race_event.fis_id, 
+                    racer_id=racer.fis_id, 
+                    defaults={'start_number': start_number, 'is_dnf': True}
+                )
                 
                 dnf_athletes.append({"start_number": start_number, "racer": racer})
 

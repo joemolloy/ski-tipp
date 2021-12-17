@@ -35,6 +35,8 @@ LOGOUT_REDIRECT_URL = '/user/login'
 
 # Application definition
 
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
 INSTALLED_APPS = [
     'skitipp.apps.SkitippConfig',
     'django.contrib.admin',
