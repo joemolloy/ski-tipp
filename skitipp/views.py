@@ -409,13 +409,11 @@ def update_wc_start_list(request):
     return HttpResponseRedirect(reverse('race_list_current'))
 
 @staff_member_required
-def rescore_all_races(request):
+def rescore_all_races(request, season_id):
 
-    selected_season = get_selected_season(request)
+    TippPointTally.objects.filter(race_event__season__pk=season_id).delete()
 
-    TippPointTally.objects.filter(race_event__season=selected_season).delete()
-
-    for race_event in RaceEvent.objects.filter(season=selected_season, finished=True).order_by('race_date'):
+    for race_event in RaceEvent.objects.filter(season__pk=season_id, finished=True).order_by('race_date'):
         
         race_event = fis_connector.get_race_results(race_event.fis_id)
 
