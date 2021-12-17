@@ -25,7 +25,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: don't run with debug turned on in production!
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-DEBUG = os.environ.get('DJANGO_DEBUG', "True")
+DEBUG = os.environ.get('DJANGO_DEBUG', False) == 'True'
 
 ALLOWED_HOSTS = json.loads(os.environ.get('ALLOWED_HOSTS', '["localhost"]'))
 
