@@ -95,7 +95,7 @@ class RaceEvent(models.Model):
 
     @property
     def alle_im_ziel(self):
-        return not self.dnfs.exists()
+        return not self.dnfs.filter(start_number__lte=30).exists()
 
     @property
     def status(self):
