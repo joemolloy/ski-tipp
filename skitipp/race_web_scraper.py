@@ -15,6 +15,7 @@ def get_season_events(calendar_url, season_id):
     tree = html.fromstring(page.content)
 
     calendar_rows = tree.xpath('//div[@id="calendardata"]//div[@class="g-row"]')
+    print(calendar_rows)
     events = []
 
     for event_row in calendar_rows:
@@ -48,7 +49,9 @@ def get_races_for_event(event_url, existing_race_ids):
         race['fis_id'] = int(re.search(r'raceid=(\d+)', race['link']).group(1))
         race['exists'] = race['fis_id'] in existing_race_ids
 
-        if race['race_category']  == 'WC' and race['race_gender'] == 'M':
+        print(race)
+
+        if race['race_category']  in ['WC', 'OWG', 'WM'] and race['race_gender'] == 'M':
             races.append(race)    
     return races
 
