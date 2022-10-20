@@ -32,7 +32,7 @@ def extract_race_info(tree, fis_race_id, season=None):
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
 
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
-    race_kind =     race_kind.strip().split(' ', 1)[1]    #remove "Men's " from race_kind
+    race_kind =     race_kind.strip().split(' ', 1)[1].strip()   #remove "Men's " from race_kind
 
     race_date = tree.xpath('//span[@class="date__full"]/text()')[0]
 
