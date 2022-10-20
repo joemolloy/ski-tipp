@@ -1,4 +1,4 @@
-from lxml import html, etree
+from lxml import html, etree, cssselect
 import requests
 import re
 from skitipp.models import RaceEvent
@@ -15,15 +15,20 @@ def get_season_events(calendar_url, season_id):
     tree = html.fromstring(page.content)
 
     calendar_rows = tree.xpath('//div[@id="calendardata"]//div[@class="g-row"]')
-    print(calendar_rows)
     events = []
 
+    #print(calendar_rows)
+
     for event_row in calendar_rows:
-        event_name_col = event_row.find('./a[4]')
+        #print("test:", event_row.cssselect("a.bold"))
+        event_name_col = event_row.cssselect("a.bold")[0]
         event = dict(
             event_place = event_name_col.text,
             event_url = event_name_col.attrib['href']
         )
+
+        print(event['event_place'])
+
         event['races'] = get_races_for_event(event['event_url'], existing_race_ids)
         events.append(event)
 
@@ -33,23 +38,24 @@ def get_season_events(calendar_url, season_id):
 def get_races_for_event(event_url, existing_race_ids):
     event_page = requests.get(event_url)
     tree2 = html.fromstring(event_page.content)
-    race_rows = tree2.xpath('//div[@id="eventdetailscontent"]//div[contains(@class, "table-row")]')
-
+    race_rows = tree2.cssselect("#eventdetailscontent div.table-row div.container")
+    print('rr', race_rows)
     races = []
-    
     for race_row in race_rows:
+        race_row = race_row[0][0]
 
         race = dict(
-            link = race_row.find('.//a').attrib['href'],
-            race_date = race_row.find('.//a[2]').text_content().strip(),
-            race_type = race_row.find('.//a[4]').text_content().strip(),
-            race_category = race_row.find('.//a[6]').text_content().strip(),
-            race_gender = race_row.find('.//a[7]').text_content().strip() 
+            link = race_row.find('./a').attrib['href'],
+            race_date = race_row.find('./a[2]').text_content().strip(),
+            race_type = race_row.find('./a[4]').text_content().strip(),
+            race_category = race_row.find('./a[6]').text_content().strip(),
+            race_gender = race_row.find('./a[7]').text_content().strip() 
         )
         race['fis_id'] = int(re.search(r'raceid=(\d+)', race['link']).group(1))
         race['exists'] = race['fis_id'] in existing_race_ids
 
-        print(race)
+        print(race['race_date'], race['race_category'], race['race_gender'])
+        print()
 
         if race['race_category']  in ['WC', 'OWG', 'WM'] and race['race_gender'] == 'M':
             races.append(race)    
