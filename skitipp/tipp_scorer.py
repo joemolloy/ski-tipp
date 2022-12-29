@@ -78,9 +78,9 @@ def determine_start_group(race_event, start_number):
             group = 4
 
     elif race_event.is_speed_event:
-        if start_number <= 20 and start_number % 2 == 1:
+        if start_number >= 6 and start_number <= 15:
             group = 1
-        elif start_number <= 20:
+        elif start_number <= 5 or (start_number >= 16 and start_number <= 20):
             group = 2
         elif start_number <= 30:
             group = 3
