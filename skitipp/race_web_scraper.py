@@ -57,7 +57,7 @@ def get_races_for_event(event_url, existing_race_ids):
         print(race['race_date'], race['race_category'], race['race_gender'])
         print()
 
-        if race['race_category']  in ['WC', 'OWG', 'WM'] and race['race_gender'] == 'M':
+        if race['race_category']  in ['WSC', 'WC', 'OWG', 'WM'] and race['race_gender'] == 'M':
             races.append(race)    
     return races
 
