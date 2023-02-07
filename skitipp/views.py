@@ -576,9 +576,11 @@ def email_admin_about_registration(request, user):
 
         approval_link = request.build_absolute_uri(reverse('activate_user', kwargs=dict(username=user.username)))
 
-        approver_email = User.objects.filter(username='Donkunho').get().email
-        if approver_email is None or approver_email == '':
-            approver_email = User.objects.filter(username='joemolloy').get().email
+        approver_emails = [u.email for u in User.objects.filter(groups__name='Season Admin')]
+        if approver_emails is None or approver_emails == []:
+            approver_emails = [User.objects.filter(username='joemolloy').get().email]
+
+        print('Approver emails:', approver_emails)
 
         send_mail(
             subject='There is a new registration on Ski-tipp.org',
@@ -588,7 +590,7 @@ def email_admin_about_registration(request, user):
 
             To approve the account, use the following link: {approval_link}''',
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list = [approver_email],
+            recipient_list = approver_emails,
             fail_silently=False,
         )
 

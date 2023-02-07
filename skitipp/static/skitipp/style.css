@@ -182,3 +182,10 @@ td.table-cell-total {
 td.table-value {
     text-align: center
 }
+
+ul.errorlist {
+    background: #fff0f4;
+    color: #c51244;
+    border: 1px solid #c51244 !important; 
+    list-style-type: none;
+}
