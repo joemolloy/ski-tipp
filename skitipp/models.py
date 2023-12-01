@@ -10,6 +10,9 @@ import skitipp.tipp_scorer as tipp_scorer
 class RacerQuerySet(models.QuerySet):
     def competitors(self):
         return self.exclude(fis_id=0).exclude(active=False)
+    
+    def dnf_list(self):
+        return self.filter(Q(active=True) | Q(fis_id=0))
 
 class Tipper(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

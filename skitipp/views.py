@@ -71,7 +71,7 @@ class RacerAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     def get_queryset(self):
         field = self.forwarded.get('racer_type', None)
         if field == 'dnf':
-            qs = Racer.objects.exclude(active=False).annotate(
+            qs = Racer.objects.dnf_list().annotate(
                 is_dnf=Case(When(fis_id=0, then=Value(True)), default=Value(False), output_field=BooleanField())
             ).order_by('-is_dnf', 'name')
         else:
