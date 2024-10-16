@@ -36,12 +36,10 @@ def extract_race_info(tree, fis_race_id, season=None):
 
     race_date = tree.xpath('//span[@class="date__full"]/text()')[0]
 
-    race_time_elem = tree.xpath('//div[@class="time schedule-list__time"]')
+    race_time_elems = tree.xpath('//div[@class="timezone-time"]')
     
-    if race_time_elem:
-        race_time = race_time_elem[0].attrib['data-default-time']
-        race_time_zone = race_time_elem[0].attrib['data-default-timezone']
-        date_time_string = '{} {} {}'.format(race_date, race_time, race_time_zone)
+    if race_time_elems:
+        date_time_string = race_time_elems[0].attrib['data-iso-date']
     else:
         date_time_string = race_date
 
