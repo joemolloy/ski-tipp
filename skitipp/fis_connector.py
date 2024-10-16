@@ -170,7 +170,10 @@ def get_dnf_racers(tree, race_event):
 
 def results_published(tree):
     table_header = tree.xpath('.//div[@id="ajx_results"]//h3')[0].text
-    return table_header.upper() in ['OFFICIAL RESULTS' , 'UNOFFICIAL RESULTS', 'UNOFFICIAL RESULTS (PARTIAL)']
+    return (
+        table_header is not None and
+        table_header.upper() in ['OFFICIAL RESULTS' , 'UNOFFICIAL RESULTS', 'UNOFFICIAL RESULTS (PARTIAL)']
+    )
 
 def get_new_race_results(fis_race_id, season):
 
