@@ -93,6 +93,24 @@ def update_ws_start_list():
             fis_id=fis_id, defaults=dict(name=racer_name, active=True, rank=i),
         )
 
+def process_racer_row(row_element, processing_dnf=False):
+    cols = row_element.xpath('./div')
+    # Skip rows with insufficient columns
+    if not processing_dnf:
+        rank = int(cols[0].xpath('string(.)').strip())
+    else:
+        rank = None
+    start_number = int(cols[1].xpath('string(.)').strip())
+    fis_id = int(cols[2].xpath('string(.)').strip())
+    name = cols[3].xpath(f'string(.//div[contains(@class, "athlete-name")])').strip()
+
+    racer_details = dict(
+        rank=rank, start_number=start_number,
+        fis_id = fis_id, name = name
+    )
+
+    print(racer_details)
+    return racer_details
 
 def get_finishers(tree, race_event):
     #completed racers
@@ -100,30 +118,30 @@ def get_finishers(tree, race_event):
     results_rows = results_table.xpath('.//div[@class="g-row justify-sb"]')
 
     athletes = []
-    for row in results_rows:
-        cols = row.xpath('.//div/text()[normalize-space()]')
-        #print("num cols: ", len(cols))
-        rank = int(cols[0])
-        start_number = int(cols[1])
-        fis_id = int(cols[2])
-        name = str(cols[3]).strip()
+    for row_element in results_rows:
+        
+        racer_details = process_racer_row(row_element)
 
-        print(rank, start_number, fis_id, name)
+        racer, created = Racer.objects.get_or_create(
+            fis_id=racer_details['fis_id'], 
+            defaults=dict(name=racer_details['name']))
 
-        racer, created = Racer.objects.get_or_create(fis_id=fis_id, defaults=dict(name=name))
-
-        if racer.name != name:
-            racer.name = name
+        if racer.name != racer_details['name']:
+            racer.name = racer_details['name']
             racer.save()
         
         RaceCompetitor.objects.update_or_create(
             race_event_id=race_event.fis_id, 
             racer_id=racer.fis_id, 
-            defaults={'start_number': start_number, 'rank': rank}
+            defaults={'start_number': racer_details['start_number'], 'rank': racer_details['rank']}
         )
 
         #print(rank, bib, racer_id, name)
-        athletes.append({"rank": rank, "start_number": start_number, "racer": racer})
+        athletes.append({
+            "rank": racer_details['rank'], 
+            "start_number": racer_details['start_number'], 
+            "racer": racer}
+        )
 
     return athletes
 
@@ -141,26 +159,26 @@ def get_dnf_racers(tree, race_event):
         if (header != 'Did not qualify') and ('Did not start' not in header) and ('qualification race' not in header):
             print (header)
             athlete_row = table.xpath('.//div[@class="g-row justify-sb"]') 
-            for row in athlete_row:
+            for row_element in athlete_row:
 
-                cols = row.xpath('.//div/text()[normalize-space()]')
-                start_number = int(cols[0])
-                fis_id = int(cols[1])
-                name = str(cols[2]).strip()
-                racer, created = Racer.objects.get_or_create(fis_id=fis_id, defaults=dict(name=name))
+                racer_details = process_racer_row(row_element, processing_dnf=True)
 
-                if racer.name != name:
-                    racer.name = name
+                racer, created = Racer.objects.get_or_create(
+                    fis_id=racer_details['fis_id'], 
+                    defaults=dict(name=racer_details['name']))
+
+                if racer.name != racer_details['name']:
+                    racer.name = racer_details['name']
                     racer.save()
 
                 #if start_number <= race_event.start_list_length:
                 RaceCompetitor.objects.update_or_create(
                     race_event_id=race_event.fis_id, 
                     racer_id=racer.fis_id, 
-                    defaults={'start_number': start_number, 'is_dnf': True}
+                    defaults={'start_number': racer_details['start_number'], 'is_dnf': True}
                 )
                 
-                dnf_athletes.append({"start_number": start_number, "racer": racer})
+                dnf_athletes.append({"start_number": racer_details['start_number'], "racer": racer})
 
 
         #print(bib, racer_id, name)
