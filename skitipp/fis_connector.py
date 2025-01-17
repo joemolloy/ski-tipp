@@ -75,18 +75,20 @@ def update_ws_start_list():
     page = requests.get(fis_base_link)
     tree = html.fromstring(page.content)
 
+    #TODO: don't process these in parallel
     racer_links = tree.xpath('//div[@id="cupstandingsdata"]//a/@href')
-    racer_names = [str(s).strip() for s in tree.xpath('//div[@id="cupstandingsdata"]//a/div[1]/div[1]/text()')]
+    racer_names = [s.strip() for s in tree.xpath('//div[@id="cupstandingsdata"]//div[contains(@class, "athlete-name")]/text()')]
 
     #set all racers to inactive
     Racer.objects.update(active=False, rank=None)
 
     for i, link in enumerate(racer_links):
-        racer_page = requests.get(link)
-        racer_tree = html.fromstring(racer_page.content)
-        fis_id = int(racer_tree.xpath('//li[@id="FIS Code"]/span[@class="profile-info__value"]/text()')[0])
+        #racer_page = requests.get(link)
+        #racer_tree = html.fromstring(racer_page.content)
+        fis_id_match = p.search(link)
+        fis_id = fis_id_match.group(1)
         racer_name = racer_names[i]
-        print (i, fis_id, racer_name)
+        print (i, fis_id, racer_name, link)
 
         #add new racers and set to active
         obj, created = Racer.objects.update_or_create(
