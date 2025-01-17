@@ -70,7 +70,6 @@ def get_results_html_table(tree):
 
 def update_ws_start_list():
     fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2025&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
-    p = re.compile("competitorid=(\d+)")
 
     page = requests.get(fis_base_link)
     tree = html.fromstring(page.content)
@@ -83,10 +82,9 @@ def update_ws_start_list():
     Racer.objects.update(active=False, rank=None)
 
     for i, link in enumerate(racer_links):
-        #racer_page = requests.get(link)
-        #racer_tree = html.fromstring(racer_page.content)
-        fis_id_match = p.search(link)
-        fis_id = fis_id_match.group(1)
+        racer_page = requests.get(link)
+        racer_tree = html.fromstring(racer_page.content)
+        fis_id = int(racer_tree.xpath('//li[@id="FIS Code"]/span[@class="profile-info__value"]/text()')[0])
         racer_name = racer_names[i]
         print (i, fis_id, racer_name, link)
 
