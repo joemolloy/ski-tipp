@@ -2,10 +2,12 @@ sent_emails
 analysis
 istv/secret_key.txt
 istv-virt
-istv.code-workspace
+*.code-workspace
 *.sqlite3
-
+__pycache__
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+static/
+.DS_Store
