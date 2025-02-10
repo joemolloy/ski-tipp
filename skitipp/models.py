@@ -7,16 +7,19 @@ from django.utils import timezone
 
 import skitipp.tipp_scorer as tipp_scorer
 
+
 class RacerQuerySet(models.QuerySet):
     def competitors(self):
         return self.exclude(fis_id=0).exclude(active=False)
-    
+
     def dnf_list(self):
         return self.filter(Q(active=True) | Q(fis_id=0))
+
 
 class Tipper(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     mobile_number = models.CharField(max_length=20)
+
 
 class Racer(models.Model):
     fis_id = models.IntegerField(primary_key=True)
@@ -28,28 +31,31 @@ class Racer(models.Model):
 
     @property
     def lname(self):
-        return self.name.split(' ')[0]
+        return self.name.split(" ")[0]
 
     def __str__(self):
         return self.name
 
+
 RACE_TYPES = {
-        "Slalom" : "tech",
-        "Giant Slalom" : "tech",
-        "Super G": "speed",
-        "Downhill" : "speed",
-        "Alpine combined" : "speed",
-        "Alpine Combined" : "speed",
-        "City Event" : "other",
-        "Parallel Giant Slalom" : "other",
-        "Parallel Slalom" : "other"
-    }
+    "Slalom": "tech",
+    "Giant Slalom": "tech",
+    "Super G": "speed",
+    "Downhill": "speed",
+    "Alpine combined": "speed",
+    "Alpine Combined": "speed",
+    "Team Combined": "speed",
+    "City Event": "other",
+    "Parallel Giant Slalom": "other",
+    "Parallel Slalom": "other",
+}
+
 
 class Season(models.Model):
-    name = models.CharField(max_length=200,null=False)
+    name = models.CharField(max_length=200, null=False)
     start_date = models.DateField(null=False)
     end_date = models.DateField(null=False)
-    tippers = models.ManyToManyField('auth.User')
+    tippers = models.ManyToManyField("auth.User")
     current = models.BooleanField(default=False)
     fis_calendar = models.URLField(null=True, max_length=500)
 
@@ -57,16 +63,15 @@ class Season(models.Model):
         return self.name
 
     def select_season_url(self):
-        return reverse('select_season', kwargs={'season_id': self.pk})
+        return reverse("select_season", kwargs={"season_id": self.pk})
 
     def get_absolute_url(self):
         return reverse("edit_season", kwargs={"pk": self.pk})
-    
 
 
 class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)
-    
+
     location = models.CharField(max_length=200)
     kind = models.CharField(max_length=200)
     race_date = models.DateTimeField()
@@ -81,21 +86,21 @@ class RaceEvent(models.Model):
     short_name = models.CharField(max_length=10)
     start_list_length = models.IntegerField(null=False)
 
-    season = models.ForeignKey('Season',
-        related_name='races', on_delete=models.CASCADE, null=True, blank=True
+    season = models.ForeignKey(
+        "Season", related_name="races", on_delete=models.CASCADE, null=True, blank=True
     )
 
     def get_absolute_url(self):
-        return reverse('race_detail', kwargs={'pk': self.pk})
+        return reverse("race_detail", kwargs={"pk": self.pk})
 
     @property
     def podium(self):
-        podium = self.start_list.filter(is_dnf=False, rank__lte=3).order_by('rank')
+        podium = self.start_list.filter(is_dnf=False, rank__lte=3).order_by("rank")
         return podium
 
     @property
     def dnfs(self):
-        return self.start_list.filter(is_dnf=True).order_by('racer__name')
+        return self.start_list.filter(is_dnf=True).order_by("racer__name")
 
     @property
     def alle_im_ziel(self):
@@ -113,10 +118,15 @@ class RaceEvent(models.Model):
     @property
     def get_last_tipps(self):
         last_tipps = []
-        for u in User.objects.all().prefetch_related('tipps'):
-            user_last_tipp = u.tipps.filter(
-                Q(race_event=self) & Q(Q(created__lt=self.race_date) | Q(corrected_tipp=True))
-            ).order_by("-created").first()
+        for u in User.objects.all().prefetch_related("tipps"):
+            user_last_tipp = (
+                u.tipps.filter(
+                    Q(race_event=self)
+                    & Q(Q(created__lt=self.race_date) | Q(corrected_tipp=True))
+                )
+                .order_by("-created")
+                .first()
+            )
 
             if user_last_tipp:
                 last_tipps.append(user_last_tipp)
@@ -125,22 +135,22 @@ class RaceEvent(models.Model):
 
     @property
     def is_tech_event(self):
-        return RACE_TYPES[self.kind] == 'tech'
+        return RACE_TYPES[self.kind] == "tech"
 
     @property
     def is_speed_event(self):
-        return RACE_TYPES[self.kind] == 'speed'
+        return RACE_TYPES[self.kind] == "speed"
 
     @property
     def dnf_eligible(self):
         return self.is_tech_event or self.is_speed_event
 
     def detail_link(self):
-        return reverse('race_detail', kwargs={'pk': self.pk})
-    
+        return reverse("race_detail", kwargs={"pk": self.pk})
+
     def tipp_link(self):
-            return reverse('create_tipp', kwargs={'race_id': self.pk})
-        
+        return reverse("create_tipp", kwargs={"race_id": self.pk})
+
     @property
     def start_date_in_past(self):
         return self.race_date < timezone.now()
@@ -148,13 +158,14 @@ class RaceEvent(models.Model):
     def __str__(self):
         return self.short_name
 
+
 class RaceCompetitor(models.Model):
 
-    race_event = models.ForeignKey('RaceEvent',
-        related_name='start_list', on_delete=models.CASCADE
+    race_event = models.ForeignKey(
+        "RaceEvent", related_name="start_list", on_delete=models.CASCADE
     )
-    racer = models.ForeignKey('Racer',
-        related_name='start_lists', on_delete=models.PROTECT
+    racer = models.ForeignKey(
+        "Racer", related_name="start_lists", on_delete=models.PROTECT
     )
     start_number = models.IntegerField()
     rank = models.IntegerField(null=True)
@@ -162,23 +173,35 @@ class RaceCompetitor(models.Model):
 
 
 class Tipp(models.Model):
-    tipper = models.ForeignKey('auth.User', related_name='tipps', on_delete=models.CASCADE)
-    race_event = models.ForeignKey('RaceEvent', related_name='tipps', on_delete=models.CASCADE)
+    tipper = models.ForeignKey(
+        "auth.User", related_name="tipps", on_delete=models.CASCADE
+    )
+    race_event = models.ForeignKey(
+        "RaceEvent", related_name="tipps", on_delete=models.CASCADE
+    )
 
     created = models.DateTimeField(auto_now_add=True)
 
-    place_1 = models.ForeignKey('Racer', related_name='place_1', on_delete=models.DO_NOTHING)
-    place_2 = models.ForeignKey('Racer', related_name='place_2', on_delete=models.DO_NOTHING)
-    place_3 = models.ForeignKey('Racer', related_name='place_3', on_delete=models.DO_NOTHING)
+    place_1 = models.ForeignKey(
+        "Racer", related_name="place_1", on_delete=models.DO_NOTHING
+    )
+    place_2 = models.ForeignKey(
+        "Racer", related_name="place_2", on_delete=models.DO_NOTHING
+    )
+    place_3 = models.ForeignKey(
+        "Racer", related_name="place_3", on_delete=models.DO_NOTHING
+    )
 
-    dnf = models.ForeignKey('Racer', related_name='dnfs', on_delete=models.DO_NOTHING, null=True, blank=True)
+    dnf = models.ForeignKey(
+        "Racer", related_name="dnfs", on_delete=models.DO_NOTHING, null=True, blank=True
+    )
 
     comment = models.TextField(null=True, blank=True)
 
     corrected_tipp = models.BooleanField(default=False)
 
     def get_absolute_url(self):
-        return reverse('create_tipp', kwargs={'race_id': self.race_event.pk})
+        return reverse("create_tipp", kwargs={"race_id": self.race_event.pk})
 
     @property
     def alle_im_ziel(self):
@@ -192,10 +215,21 @@ class Tipp(models.Model):
     def breakdown(self):
         return tipp_scorer.get_tipp_breakdown(self)
 
+
 class TippPointTally(models.Model):
-    tipper = models.ForeignKey('auth.User', related_name='user_points_tally', on_delete=models.CASCADE)
-    race_event = models.ForeignKey('RaceEvent', related_name='race_points_tally', on_delete=models.CASCADE)
-    tipp = models.OneToOneField('Tipp', related_name='tipp_points_tally', on_delete=models.CASCADE, null=True, blank=True)
+    tipper = models.ForeignKey(
+        "auth.User", related_name="user_points_tally", on_delete=models.CASCADE
+    )
+    race_event = models.ForeignKey(
+        "RaceEvent", related_name="race_points_tally", on_delete=models.CASCADE
+    )
+    tipp = models.OneToOneField(
+        "Tipp",
+        related_name="tipp_points_tally",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
 
     standard_points = models.FloatField(null=False, default=0)
     bonus_points = models.FloatField(null=False, default=0)
@@ -210,22 +244,35 @@ class TippPointTally(models.Model):
         return self.tipp is not None
 
     def save(self, *args, **kwargs):
-        #update total points
-        self.total_points = self.points_multiplier * (self.standard_points + self.bonus_points)
+        # update total points
+        self.total_points = self.points_multiplier * (
+            self.standard_points + self.bonus_points
+        )
 
         super().save(*args, **kwargs)  # Call the "real" save() method.
 
+
 class PointAdjustment(models.Model):
-    tipper = models.ForeignKey('auth.User', related_name='points_adjustments', on_delete=models.CASCADE, null=False)
+    tipper = models.ForeignKey(
+        "auth.User",
+        related_name="points_adjustments",
+        on_delete=models.CASCADE,
+        null=False,
+    )
     reason = models.CharField(max_length=200, null=False)
     preseason = models.BooleanField(null=False, default=False)
     created = models.DateTimeField(auto_now_add=True)
-    season = models.ForeignKey('Season', related_name='points_adjustments', null=False, on_delete=models.CASCADE) 
+    season = models.ForeignKey(
+        "Season",
+        related_name="points_adjustments",
+        null=False,
+        on_delete=models.CASCADE,
+    )
 
     class ApplicableTo(models.TextChoices):
-        BOTH = 'Both'
-        OVERALL = 'Overall'
-        DISCIPLINES = 'Disciplines'
+        BOTH = "Both"
+        OVERALL = "Overall"
+        DISCIPLINES = "Disciplines"
 
     applicable_to = models.CharField(
         max_length=20,
@@ -236,9 +283,14 @@ class PointAdjustment(models.Model):
     points = models.FloatField(null=False, help_text="(+/-)")
 
     def get_absolute_url(self):
-        return reverse('point_adjustments', kwargs={'season_id': self.season.pk})
+        return reverse("point_adjustments", kwargs={"season_id": self.season.pk})
+
 
 class SentReminder(models.Model):
-    tipper = models.ForeignKey('auth.User', related_name='sent_reminders', on_delete=models.CASCADE, null=False)
-    race_event = models.ForeignKey('RaceEvent', related_name='sent_reminders', on_delete=models.CASCADE)
+    tipper = models.ForeignKey(
+        "auth.User", related_name="sent_reminders", on_delete=models.CASCADE, null=False
+    )
+    race_event = models.ForeignKey(
+        "RaceEvent", related_name="sent_reminders", on_delete=models.CASCADE
+    )
     sent_on = models.DateTimeField(auto_now_add=True)
