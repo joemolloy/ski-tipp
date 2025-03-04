@@ -42,13 +42,15 @@ RACE_TYPES = {
     "Giant Slalom": "tech",
     "Super G": "speed",
     "Downhill": "speed",
-    "Alpine combined": "speed",
+    #"Alpine combined": "speed",
     "Alpine Combined": "speed",
     "Team Combined": "speed",
     "City Event": "other",
     "Parallel Giant Slalom": "other",
     "Parallel Slalom": "other",
 }
+
+SELECTABLE_RACE_TYPES = [(k,k) for k,v in RACE_TYPES.items() if v != 'other']
 
 
 class Season(models.Model):
@@ -73,7 +75,7 @@ class RaceEvent(models.Model):
     fis_id = models.IntegerField(primary_key=True)
 
     location = models.CharField(max_length=200)
-    kind = models.CharField(max_length=200)
+    kind = models.CharField(max_length=200, choices=SELECTABLE_RACE_TYPES)
     race_date = models.DateTimeField()
 
     is_classic = models.BooleanField(default=False)
