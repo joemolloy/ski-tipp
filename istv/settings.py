@@ -27,6 +27,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 DEBUG = os.environ.get('DJANGO_DEBUG', False) == 'True'
 
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 ALLOWED_HOSTS = json.loads(os.environ.get("ALLOWED_HOSTS", '["ski-tipp.org", "www.ski-tipp.org", "localhost", "127.0.0.1", "[::1]"]'))
 CSRF_TRUSTED_ORIGINS = ["https://ski-tipp.org", "https://www.ski-tipp.org"]
 
