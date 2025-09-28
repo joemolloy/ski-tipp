@@ -27,7 +27,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 DEBUG = os.environ.get('DJANGO_DEBUG', False) == 'True'
 
-ALLOWED_HOSTS = json.loads(os.environ.get("ALLOWED_HOSTS", '["localhost", "127.0.0.1", "[::1]"]'))
+ALLOWED_HOSTS = json.loads(os.environ.get("ALLOWED_HOSTS", '["ski-tipp.org", "www.ski-tipp.org", "localhost", "127.0.0.1", "[::1]"]'))
+CSRF_TRUSTED_ORIGINS = ["https://ski-tipp.org", "https://www.ski-tipp.org"]
 
 LOGIN_URL = '/user/login'
 LOGIN_REDIRECT_URL = '/app/racelist/'
