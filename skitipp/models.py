@@ -89,7 +89,8 @@ class RaceEvent(models.Model):
     start_list_length = models.IntegerField(null=False)
 
     season = models.ForeignKey(
-        "Season", related_name="races", on_delete=models.CASCADE, null=True, blank=True
+        "Season", related_name="races", on_delete=models.CASCADE, null=True, blank=True,
+        db_index=True
     )
 
     def get_absolute_url(self):
@@ -185,17 +186,21 @@ class Tipp(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     place_1 = models.ForeignKey(
-        "Racer", related_name="place_1", on_delete=models.DO_NOTHING
+        "Racer", related_name="place_1", on_delete=models.DO_NOTHING,
+        db_index=True
     )
     place_2 = models.ForeignKey(
-        "Racer", related_name="place_2", on_delete=models.DO_NOTHING
+        "Racer", related_name="place_2", on_delete=models.DO_NOTHING,
+        db_index=True
     )
     place_3 = models.ForeignKey(
-        "Racer", related_name="place_3", on_delete=models.DO_NOTHING
+        "Racer", related_name="place_3", on_delete=models.DO_NOTHING,
+        db_index=True
     )
 
     dnf = models.ForeignKey(
-        "Racer", related_name="dnfs", on_delete=models.DO_NOTHING, null=True, blank=True
+        "Racer", related_name="dnfs", on_delete=models.DO_NOTHING, null=True, blank=True,
+        db_index=True
     )
 
     comment = models.TextField(null=True, blank=True)
