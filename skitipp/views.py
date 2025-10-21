@@ -426,8 +426,15 @@ def publish_tipps(request, race_id):
 
 @staff_member_required
 def update_wc_start_list(request):
-    fis_connector.update_ws_start_list()
-    messages.info(request, "Racers updated from FIS WC Startlist")
+    try:
+        summary = fis_connector.update_ws_start_list()
+        msg = f"WC Startlist processed: created {summary['created']}, updated {summary['updated']}, total {summary['total']}"
+        messages.info(request, msg)
+        if summary['errors']:
+            messages.warning(request, f"Encountered {len(summary['errors'])} issues: {', '.join(summary['errors'][:5])}{' ...' if len(summary['errors'])>5 else ''}")
+    except Exception as e:
+        print('Error updating WC start list:', e)
+        messages.error(request, f"Failed to update racers: {e}")
     return HttpResponseRedirect(reverse('race_list_current'))
 
 @staff_member_required
