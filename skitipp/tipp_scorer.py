@@ -155,8 +155,6 @@ def racer_points(tipp):
     dnf_bonus = dnf_points(tipp, race_event) #dnf bonus points
     bonus_points = ranking_bonus + podium_bonus + dnf_bonus
 
-    print ("{} race points: sp: {}, bp: ({},{},{})".format(tipp.tipper, standard_points, ranking_bonus, podium_bonus, dnf_bonus))
-
     details = dict(
         racers = [
             dict(id=1, name=tipp.place_1.lname, 

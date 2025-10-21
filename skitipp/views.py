@@ -353,7 +353,11 @@ def upload_races_bulk(request, season_id):
 
     print(request.POST)
 
-    if request.is_ajax and request.method == 'GET':
+    # Django 5 removed request.is_ajax; emulate via header for legacy JS calls
+    def _is_ajax(req):
+        return req.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if request.method == 'GET' and _is_ajax(request):
         
         #download calendar and format for page
         calendar_link = get_object_or_404(Season, pk=season_id).fis_calendar
@@ -367,7 +371,7 @@ def upload_races_bulk(request, season_id):
             response.status_code = 400 
             return response
 
-    elif request.is_ajax and request.method == 'POST':
+    elif request.method == 'POST':
         print('loading races')
         
         created_races = []
@@ -392,7 +396,8 @@ def upload_races_bulk(request, season_id):
         return redirect('edit_season', selected_season.pk)
     # if a GET (or any other method) we'll create a blank form
     else:
-        form = UploadRaceBulkForm(initial = {'season':selected_season})
+        # Non-AJAX GET fallback: just show empty form (likely initial page load before JS populates)
+        form = UploadRaceBulkForm(initial={'season': selected_season})
         return render(request, 'upload_race_bulk_form.html', {'race_form': form, 'selected_season': selected_season})
 
 
