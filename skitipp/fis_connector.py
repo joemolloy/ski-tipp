@@ -147,7 +147,7 @@ def process_racer_row(row_element, processing_dnf=False):
         rank = None
     start_number = int(cols[1].xpath('string(.)').strip())
     fis_id = int(cols[2].xpath('string(.)').strip())
-    name = cols[3].xpath(f'string(.//div[contains(@class, "athlete-name")])').strip()
+    name = cols[3].xpath('string(.)').strip()
 
     racer_details = dict(
         rank=rank, start_number=start_number,
