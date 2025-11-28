@@ -10,6 +10,17 @@ from django.shortcuts import get_object_or_404
 
 from skitipp.models import RaceEvent, Racer, RaceCompetitor
 
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": "https://www.fis-ski.com/DB/",
+}
+
 def create_short_name(race_name, race_kind):
     abrv_name = race_name[:4].strip()
 
@@ -72,7 +83,7 @@ def update_ws_start_list():
     fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2025&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
 
     try:
-        resp = requests.get(fis_base_link, timeout=15)
+        resp = requests.get(fis_base_link, timeout=15, headers=HEADERS)
     except Exception as e:
         raise RuntimeError(f"Failed to fetch WC start list page: {e}")
     if resp.status_code != 200:
@@ -110,9 +121,11 @@ def update_ws_start_list():
     updated_count = 0
     errors = []
 
+    session = requests.Session()
+
     for i, link in enumerate(racer_links):
         try:
-            r_resp = requests.get(link, timeout=10)
+            r_resp = session.get(link, timeout=10, headers=HEADERS)
             if r_resp.status_code != 200:
                 errors.append(f"{link} status {r_resp.status_code}")
                 continue
@@ -242,8 +255,9 @@ def get_new_race_results(fis_race_id, season):
 
     fis_base_link = 'https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={}'
     
-    page = requests.get(fis_base_link.format(fis_race_id))
-    tree = html.fromstring(page.content)
+    resp = requests.get(fis_base_link.format(fis_race_id), headers=HEADERS)
+
+    tree = html.fromstring(resp.content)
 
     (race_event, created) = extract_race_info(tree, fis_race_id, season)
 
@@ -253,7 +267,6 @@ def get_new_race_results(fis_race_id, season):
     if results_published(tree):
         finishers = get_finishers(tree, race_event)
         dnfs = get_dnf_racers(tree, race_event)
-
         print("Number of completed racers: ", len(finishers))
         print("Number of dnf racers: ", len(dnfs))
     else:
