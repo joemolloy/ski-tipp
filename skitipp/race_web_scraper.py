@@ -2,7 +2,7 @@ from lxml import html, etree, cssselect
 import requests
 import re
 from skitipp.models import RaceEvent
-
+from skitipp.fis_connector import HEADERS
 
 def get_season_events(calendar_url, season_id):    
     if not calendar_url:
@@ -11,7 +11,9 @@ def get_season_events(calendar_url, season_id):
     print('loading events from ' +  calendar_url)
     existing_race_ids = RaceEvent.objects.filter(season=season_id).values_list('pk', flat=True)
 
-    page = requests.get(calendar_url)
+    session = requests.Session()
+
+    page = session.get(calendar_url, headers=HEADERS)
     tree = html.fromstring(page.content)
 
     calendar_rows = tree.xpath('//div[@id="calendardata"]//div[@class="g-row"]')
@@ -26,50 +28,33 @@ def get_season_events(calendar_url, season_id):
             continue
         event_url = bold_links[0].attrib.get('href', '').strip()
 
-        # Fetch event page to extract authoritative place name from h1.event-header__name
-        place_text = ''
         if event_url:
             try:
-                event_page = requests.get(event_url, timeout=10)
+                event_page = session.get(event_url, timeout=10, headers=HEADERS)
                 event_tree = html.fromstring(event_page.content)
                 header_name = event_tree.cssselect('h1.event-header__name')
                 if header_name:
-                    place_text = header_name[0].text_content().strip()
+                   place_text = header_name[0].text_content().strip()
+
+                # Fallback to text of bold link if place not found from event page
+                else:
+                    place_text = bold_links[0].text_content().strip()
+
+                event = dict(
+                    event_place = place_text,
+                    event_url = event_url
+                )
+
+                print(event['event_place'], event['event_url'])
+                event['races'] = get_races_for_event(existing_race_ids, event_page.content)
+                events.append(event)
             except Exception as e:
                 print('Failed to load event page for place name:', event_url, e)
-
-        # Fallback to text of bold link if place not found from event page
-        if not place_text:
-            place_text = bold_links[0].text_content().strip()
-
-        event_page_content = None
-        if event_url:
-            try:
-                if 'event_tree' in locals():  # reuse content if already fetched above
-                    event_page_content = event_page.content
-                else:
-                    ep_resp = requests.get(event_url, timeout=10)
-                    event_page_content = ep_resp.content
-            except Exception as e:
-                print('Failed to refetch event page for races:', event_url, e)
-
-        event = dict(
-            event_place = place_text,
-            event_url = event_url
-        )
-
-        print(event['event_place'], event['event_url'])
-
-        event['races'] = get_races_for_event(event['event_url'], existing_race_ids, event_page_content)
-        events.append(event)
 
     return events
 
 
-def get_races_for_event(event_url, existing_race_ids, page_content=None):
-    if page_content is None:
-        event_page = requests.get(event_url)
-        page_content = event_page.content
+def get_races_for_event(existing_race_ids, page_content):
     tree2 = html.fromstring(page_content)
     race_rows = tree2.cssselect("#eventdetailscontent div.table-row div.container")
     print('rr', race_rows)
