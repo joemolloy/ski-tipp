@@ -10,8 +10,8 @@ How it tipps a race:
    Baum-Welch; each racer's belief is filtered forward race by race, so a prediction only
    ever uses earlier results.
 2. Race. The predicted form, form in the sister discipline, the racer's own decayed win and
-   podium rate and the start group give each starter a Plackett-Luce strength, fitted on past
-   podiums. Podium chances follow exactly from those strengths. DNF chances come from the
+   podium rate, an Elo-style rating, decayed World Cup points, venue form and the start group
+   give each starter a Plackett-Luce strength, fitted on past podiums. Podium chances follow exactly from those strengths. DNF chances come from the
    form model and start group, calibrated on past DNFs.
 3. Tipp. It picks the podium tipp and DNF pick with the highest expected ski-tipp points,
    using the real scoring: start group multipliers, rank and podium bonuses and alle im Ziel.
@@ -51,6 +51,15 @@ NEW_WINTER = 1
 PL_TOP = 3  # finishing places the race model is fitted on
 DECAY = 0.9  # weight kept by older results in the racer's own win and podium record
 SHRINK = 3  # results' worth of HMM prediction mixed into that record
+RIDGE = 5.0  # L2 penalty on the race model weights
+POINTS_DECAY = 0.85  # weight kept by older results in the decayed World Cup points average
+VENUE_DECAY = 0.8
+VENUE_PRIOR = 2  # results' worth of the racer's overall average mixed into a venue average
+RATING_STEP = 0.3  # learning rate of the online Plackett-Luce rating
+RATING_SUMMER = 0.8  # ratings shrink towards 0 over the summer
+RATING_NEW = -1.0
+RATING_DEPTH = 10  # finishing places each rating update looks at
+WC_POINTS = [100, 80, 60, 50, 45, 40, 36, 32, 29, 26, 24, 22, 20, 18, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 # start groups, as in tipp_scorer.determine_start_group
 GROUP_MULTIPLIER = [0, 1, 3, 6, 12]
@@ -107,13 +116,16 @@ class Starter:
 
 
 class Race:
-    def __init__(self, fis_id, name, kind, date, starters, multiplier=1):
+    def __init__(self, fis_id, name, kind, date, starters, multiplier=1, championship=False):
         self.fis_id, self.name, self.date = fis_id, name, date
+        # world champs and olympics: nation quotas keep regulars out, so absence means nothing
+        self.championship = championship
         self.disc = DISCIPLINES[kind]
         self.family = FAMILY[self.disc]
         self.winter = winter_of(date)
         self.starters = starters
         self.multiplier = multiplier
+        self.venue = name.split("_")[0] if "_" in name else None  # short names look like Kitz_DH
 
     @property
     def finished(self):
@@ -129,22 +141,27 @@ def racer_names(con):
     return {fis_id: name.strip().split("\n")[0].strip() for fis_id, name in con.execute("select fis_id, name from skitipp_racer")}
 
 
+def is_championship(season_name):
+    return bool(season_name) and any(w in season_name.lower() for w in ("champ", "olymp", "games"))
+
+
 def load_history(db_path):
     """Finished races in the four main disciplines, oldest first, plus racer names."""
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     names = racer_names(con)
     rows = con.execute(
-        "select r.fis_id, r.short_name, r.kind, r.race_date, r.points_multiplier, "
+        "select r.fis_id, r.short_name, r.kind, r.race_date, r.points_multiplier, s.name, "
         "c.racer_id, c.start_number, c.rank, c.is_dnf "
         "from skitipp_raceevent r join skitipp_racecompetitor c on c.race_event_id = r.fis_id "
+        "left join skitipp_season s on s.id = r.season_id "
         "where r.cancelled = 0 order by r.race_date, r.fis_id"
     )
     races = {}
-    for fis_id, name, kind, date, mult, racer, bib, rank, dnf in rows:
+    for fis_id, name, kind, date, mult, season, racer, bib, rank, dnf in rows:
         if kind not in DISCIPLINES:
             continue
         if fis_id not in races:
-            races[fis_id] = Race(fis_id, name, kind, parse_date(date), [], mult or 1)
+            races[fis_id] = Race(fis_id, name, kind, parse_date(date), [], mult or 1, is_championship(season))
         races[fis_id].starters.append(Starter(racer, bib, rank, bool(dnf)))
 
     human = defaultdict(dict)
@@ -258,6 +275,9 @@ class FormTracker:
         self.last_winter = {}     # (racer, disc) -> winter of last observation
         self.seen_this_winter = defaultdict(set)  # (disc, winter) -> racers
         self.record = {}          # (racer, disc) -> decayed [results, wins, podiums]
+        self.rating = {}          # (racer, disc) -> (online Plackett-Luce rating, winter)
+        self.points = {}          # (racer, disc) -> decayed (results, World Cup points)
+        self.venue_points = {}    # (racer, disc, venue) -> decayed (results, World Cup points)
 
     def predict(self, racer, disc, winter):
         key = (racer, disc)
@@ -271,11 +291,53 @@ class FormTracker:
         disc = SIBLING[race.disc]
         return self.hmms[disc].emit(self.predict(racer, disc, race.winter))
 
+    def ratings(self, racer, race):
+        """Non-Markov extras: an Elo-style rating, decayed World Cup points and how much better
+        or worse than usual the racer does at this venue."""
+        n, pts = self.points.get((racer, race.disc), (0.0, 0.0))
+        overall = pts / (n + 1)
+        vn, vp = self.venue_points.get((racer, race.disc, race.venue), (0.0, 0.0))
+        venue = (vp + VENUE_PRIOR * overall) / (vn + VENUE_PRIOR)
+        return [self.get_rating(racer, race.disc, race.winter), math.log(1 + overall),
+                math.log(1 + venue) - math.log(1 + overall)]
+
+    def get_rating(self, racer, disc, winter):
+        if (racer, disc) not in self.rating:
+            return RATING_NEW
+        r, w = self.rating[(racer, disc)]
+        return r if w == winter else r * RATING_SUMMER
+
+    def _observe_ratings(self, race):
+        r = [self.get_rating(s.racer, race.disc, race.winter) for s in race.starters]
+        ex = [math.exp(x) for x in r]
+        grad = [0.0] * len(r)
+        remaining = set(range(len(r)))
+        finishers = sorted((i for i, s in enumerate(race.starters) if s.rank and not s.dnf),
+                           key=lambda i: race.starters[i].rank)
+        # one gradient step on the Plackett-Luce likelihood of the finishing order
+        for i in finishers[:RATING_DEPTH]:
+            total = sum(ex[j] for j in remaining)
+            for j in remaining:
+                grad[j] -= ex[j] / total
+            grad[i] += 1
+            remaining.discard(i)
+        for k, s in enumerate(race.starters):
+            self.rating[(s.racer, race.disc)] = (r[k] + RATING_STEP * grad[k], race.winter)
+            won = WC_POINTS[s.rank - 1] if s.rank and not s.dnf and s.rank <= 30 else 0
+            n, pts = self.points.get((s.racer, race.disc), (0.0, 0.0))
+            self.points[(s.racer, race.disc)] = (POINTS_DECAY * n + 1, POINTS_DECAY * pts + won)
+            key = (s.racer, race.disc, race.venue)
+            vn, vp = self.venue_points.get(key, (0.0, 0.0))
+            self.venue_points[key] = (VENUE_DECAY * vn + 1, VENUE_DECAY * vp + won)
+
     def observe(self, race):
+        self._observe_ratings(race)
         present = set()
         for s in race.starters:
             self._observe(s.racer, race, outcome(s.rank, s.dnf))
             present.add(s.racer)
+        if race.championship:
+            return
         # racers who have raced this discipline this winter but aren't in the results: "out"
         seen = self.seen_this_winter[(race.disc, race.winter)]
         for racer in seen - present:
@@ -309,15 +371,17 @@ def form_sequences(races):
         present = {}
         for s in race.starters:
             present[s.racer] = outcome(s.rank, s.dnf)
-        for racer in seen[(race.disc, race.winter)] - set(present):
-            present[racer] = OUT
+        if not race.championship:
+            for racer in seen[(race.disc, race.winter)] - set(present):
+                present[racer] = OUT
         for racer, obs in present.items():
             key = (racer, race.disc)
             o, g = seqs[key]
             g.append(NEW_WINTER if key in last_winter and last_winter[key] != race.winter else 0)
             o.append(obs)
             last_winter[key] = race.winter
-        seen[(race.disc, race.winter)] |= set(present)
+        if not race.championship:
+            seen[(race.disc, race.winter)] |= set(present)
     by_disc = defaultdict(list)
     for (racer, disc), seq in seqs.items():
         by_disc[disc].append(seq)
@@ -331,7 +395,7 @@ def logit(p):
     return math.log(p / (1 - p))
 
 
-def features(family, emission, sibling, record, bib):
+def features(family, emission, sibling, record, ratings, bib):
     """Plackett-Luce features for one starter. Start groups are one-hot, group 1 is the baseline."""
     p_win = emission[WIN]
     p_pod = p_win + emission[PODIUM]
@@ -343,10 +407,10 @@ def features(family, emission, sibling, record, bib):
         groups[g - 2] = 1.0
     sib = math.log(sibling[WIN] + sibling[PODIUM] + sibling[TOP10] + 1e-3)
     own = [math.log(record[0] + 1e-4), math.log(record[1] + 1e-4)]
-    return [math.log(p_win + 1e-4), math.log(p_pod + 1e-4), math.log(p_top10 + 1e-3), math.log(p_top30 + 1e-3), sib] + own + groups
+    return [math.log(p_win + 1e-4), math.log(p_pod + 1e-4), math.log(p_top10 + 1e-3), math.log(p_top30 + 1e-3), sib] + own + ratings + groups
 
 
-FEATURE_NAMES = ["log P(win)", "log P(podium)", "log P(top10)", "log P(top30)", "sister discipline log P(top10)", "own log win rate", "own log podium rate", "start group 2", "start group 3", "start group 4"]
+FEATURE_NAMES = ["log P(win)", "log P(podium)", "log P(top10)", "log P(top30)", "sister discipline log P(top10)", "own log win rate", "own log podium rate", "rating", "log decayed WC points", "venue form", "start group 2", "start group 3", "start group 4"]
 
 
 def solve(H, g):
@@ -465,7 +529,8 @@ class RaceModel:
             X = []
             for s in race.starters:
                 em = tracker.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
-                X.append(features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em), s.bib))
+                X.append(features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
+                                  tracker.ratings(s.racer, race), s.bib))
                 dnf_X[race.family].append((dnf_complete, dnf_features(race.family, em, s.bib)))
                 dnf_ys[race.family].append((dnf_complete, 1.0 if s.dnf else 0.0))
             finishers = [i for i, s in enumerate(race.starters) if not s.dnf and s.rank]
@@ -476,7 +541,7 @@ class RaceModel:
         weights, calibration = {}, {}
         for family in ("tech", "speed"):
             log(f"  fitting race model for {family} on {len(pl_samples[family])} races")
-            weights[family] = fit_plackett_luce(pl_samples[family], len(FEATURE_NAMES), top=PL_TOP)
+            weights[family] = fit_plackett_luce(pl_samples[family], len(FEATURE_NAMES), top=PL_TOP, ridge=RIDGE)
             use_all = not any(c for c, _ in dnf_X[family])  # no complete records: take what there is
             X = [x for c, x in dnf_X[family] if c or use_all]
             y = [v for c, v in dnf_ys[family] if c or use_all]
@@ -491,14 +556,15 @@ class RaceModel:
         out = []
         for s in race.starters:
             em = self.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
-            x = features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em), s.bib)
+            x = features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
+                         tracker.ratings(s.racer, race), s.bib)
             u = sum(a * b for a, b in zip(w, x))
             x = dnf_features(race.family, em, s.bib)
             p_dnf = 1 / (1 + math.exp(-sum(a * b for a, b in zip(wd, x))))
             out.append((u, p_dnf, em))
         return out
 
-    def odds(self, tracker, race):
+    def odds(self, tracker, race, boosts=None):
         probs = self.starter_probabilities(tracker, race)
         # How many bib 31+ starters a database lists varies by season (non-qualifiers and, in
         # older seasons, DNFs are missing), so a per-starter strength can't be trusted for them.
@@ -514,6 +580,11 @@ class RaceModel:
                 if shift > -1e-3:
                     break
                 probs = [(u + shift, p, em) if i in late else (u, p, em) for i, (u, p, em) in enumerate(probs)]
+        # your own knowledge: a boost of 2 roughly doubles a racer's podium chance
+        for i, s in enumerate(race.starters):
+            if boosts and s.racer in boosts:
+                u, p, em = probs[i]
+                probs[i] = (u + math.log(boosts[s.racer]), p, em)
         return RaceOdds(race, probs)
 
 
@@ -610,8 +681,8 @@ def score(race, podium_racers, dnf_racer):
     return pts
 
 
-def tipp(model, tracker, race):
-    sim = model.odds(tracker, race)
+def tipp(model, tracker, race, boosts=None):
+    sim = model.odds(tracker, race, boosts)
     (a, b, c), e_pod = sim.best_podium()
     dnf_i, e_dnf = sim.best_dnf()
     racers = [race.starters[i].racer for i in (a, b, c)]
@@ -624,11 +695,18 @@ def tipp(model, tracker, race):
 def cmd_backtest(args):
     races, names, human = load_history(args.db)
     winters = sorted({r.winter for r in races})
-    test_winters = [w for w in winters if w >= winters[0] + args.min_train]
-    print(f"{len(races)} finished races across winters {winter_name(winters[0])}-{winter_name(winters[-1])}\n")
+    if args.scheme == "rolling":
+        test_winters = [w for w in winters if w >= winters[0] + args.min_train]
+    else:
+        test_winters = winters
+    print(f"{len(races)} finished races across winters {winter_name(winters[0])}-{winter_name(winters[-1])}, "
+          f"{args.scheme} scheme\n")
     rows = []
+    champs_bot, champs_humans = [], defaultdict(list)
     for w in test_winters:
-        train = [r for r in races if r.winter < w]
+        # rolling: only earlier winters, as in real use. loo: every other winter, so more training
+        # data and more test races, but the shared parameters have seen the future
+        train = [r for r in races if (r.winter < w if args.scheme == "rolling" else r.winter != w)]
         print(f"{winter_name(w)}: training on {len(train)} races")
         model = RaceModel.train(train, log=lambda m: None)
         tracker = FormTracker(model.hmms)
@@ -644,6 +722,10 @@ def cmd_backtest(args):
                 fav_pts.append(score(race, fav, dnf))
                 for tipper, hp in human.get(race.fis_id, {}).items():
                     humans[tipper].append(hp)
+                if race.championship and human.get(race.fis_id):
+                    champs_bot.append(pts)
+                    for tipper, hp in human[race.fis_id].items():
+                        champs_humans[tipper].append(hp)
                 if human.get(race.fis_id) and pts > max(human[race.fis_id].values()):
                     sole_best += 1
                 if args.verbose:
@@ -675,6 +757,12 @@ def cmd_backtest(args):
     print("\nmarkov: this bot. expect: what it expected to score. favs: same model but tipping the three most"
           "\nlikely podium finishers. humans: average regular tipper. best: best regular tipper that winter."
           "\nrank: where the bot would have finished among regular tippers.")
+    if champs_bot:
+        n = len(champs_bot)
+        ppr = sorted((sum(p) / len(p) for p in champs_humans.values() if len(p) >= n * 0.4), reverse=True)
+        bot = sum(champs_bot) / n
+        print(f"\nworld champs and olympics only: {n} races, bot {bot:.2f}, average tipper {sum(ppr) / len(ppr):.2f}, "
+              f"best {ppr[0]:.2f}, bot would rank {1 + sum(1 for h in ppr if h > bot)}/{len(ppr) + 1}")
 
 
 def cmd_train(args):
@@ -735,18 +823,24 @@ def cmd_form(args):
         print(f"{names.get(racer, racer):28}" + "".join(f"{p:10.2f}" for p in state) + f"{em[WIN]:9.2f}{em[WIN] + em[PODIUM]:11.2f}{em[DNF]:8.2f}")
 
 
-def read_start_list(path, names):
+def racer_lookup(names):
+    """Find a racer by FIS code, full name or surname, as FIS writes them."""
     by_name = {}
     for fis_id, name in names.items():
         by_name[name.lower()] = fis_id
         by_name.setdefault(name.split(" ")[0].lower(), fis_id)
+    return lambda who: int(who) if who.isdigit() else by_name.get(who.strip().lower())
+
+
+def read_start_list(path, names):
+    find = racer_lookup(names)
     starters = []
     with open(path) as f:
         for row in csv.reader(f):
             if not row or not row[0].strip().isdigit():
                 continue
             bib, who = int(row[0]), row[1].strip()
-            racer = int(who) if who.isdigit() else by_name.get(who.lower())
+            racer = find(who)
             if racer is None:
                 sys.exit(f"unknown racer {who!r} in {path}, use the FIS code instead")
             starters.append(Starter(racer, bib))
@@ -791,9 +885,19 @@ def cmd_predict(args):
     tracker = tracker_until(model, races, date)
     guessed = not starters
     race = Race(fis_id, name, kind, date, starters or [])
+    if args.venue:
+        race.venue = args.venue
     if guessed:
         race.starters = guessed_start_list(model, tracker, race.disc, race.winter, names)
-    podium, dnf, exp, sim = tipp(model, tracker, race)
+    boosts = {}
+    find = racer_lookup(names)
+    for b in args.boost:
+        who, _, factor = b.rpartition("=")
+        racer = find(who)
+        if racer is None or not factor:
+            sys.exit(f"--boost wants NAME=FACTOR, e.g. 'HAUGAN Timon=2', got {b!r}")
+        boosts[racer] = float(factor)
+    podium, dnf, exp, sim = tipp(model, tracker, race, boosts)
 
     print(f"{name} ({kind}) {date:%Y-%m-%d}" + ("  - no start list, bibs guessed from form" if guessed else ""))
     print(f"\n{'bib':>4} {'racer':28} {'x':>3} {'P(win)':>7} {'P(podium)':>10} {'P(dnf)':>7}")
@@ -816,7 +920,9 @@ def main():
     sub = p.add_subparsers(dest="command", required=True)
 
     b = sub.add_parser("backtest", help="train on earlier winters, tipp each later one")
-    b.add_argument("--min-train", type=int, default=2, help="winters of history before the first test winter")
+    b.add_argument("--scheme", choices=["rolling", "loo"], default="rolling",
+                   help="rolling: train on earlier winters only. loo: leave one winter out, train on all others")
+    b.add_argument("--min-train", type=int, default=2, help="rolling: winters of history before the first test winter")
     b.add_argument("-v", "--verbose", action="store_true", help="print every tipp")
     sub.add_parser("train", help="fit on all history and save the model")
     f = sub.add_parser("form", help="current form per racer")
@@ -829,7 +935,10 @@ def main():
     t.add_argument("--discipline", choices=FAMILY)
     t.add_argument("--start-list", help="csv of bib,racer where racer is a FIS code or name")
     t.add_argument("--date")
+    t.add_argument("--venue", help="venue as in the app's short names, e.g. Kitz or Soel, for venue form")
     t.add_argument("--top", type=int, default=15)
+    t.add_argument("--boost", action="append", default=[], metavar="NAME=FACTOR",
+                   help="scale a racer's chances by what you know, e.g. 'HAUGAN Timon=2' or 'KRANJEC Zan=0.5'")
 
     args = p.parse_args()
     {"backtest": cmd_backtest, "train": cmd_train, "form": cmd_form, "predict": cmd_predict}[args.command](args)
