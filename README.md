@@ -23,5 +23,8 @@ uv export --no-dev --no-hashes --no-emit-project -o requirements.txt
 
 ## Deployment
 
-On the server: `git pull`, then `uv sync --no-dev --frozen`, then restart gunicorn.
+To deploy, SSH to the server and run `deploy/deploy.sh <service>` from the repo checkout
+(pull, `uv sync`, collectstatic, restart the gunicorn service). Run migrations by hand if needed.
+The systemd unit's `ExecStart` should use `<repo>/.venv/bin/gunicorn`.
+
 `requirements.txt` is a pinned export of the lockfile for anywhere that only has pip.
