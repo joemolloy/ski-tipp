@@ -378,11 +378,19 @@ def upload_races_bulk(request, season_id):
         
         #download calendar and format for page
         calendar_link = get_object_or_404(Season, pk=season_id).fis_calendar
-        events = race_web_scraper.get_season_events(calendar_link, season_id)
+        try:
+            events = race_web_scraper.get_season_events(calendar_link, season_id)
+        except fis_connector.FISRateLimited:
+            raise
+        except Exception as e:
+            response = http.JsonResponse({"error": "Could not load the FIS calendar: %s" % e})
+            response.status_code = 502
+            return response
 
         if events:
+            rate_limited = any(event.get('rate_limited') for event in events)
             return render(request, 'upload_race_bulk_form.html', 
-                {'selected_season': selected_season, 'events': events})
+                {'selected_season': selected_season, 'events': events, 'rate_limited': rate_limited})
         else:
             response = http.JsonResponse({"error": "Please add a valid calendar link to the season"})
             response.status_code = 400 
@@ -399,7 +407,11 @@ def upload_races_bulk(request, season_id):
             print(k,v)
             if k.startswith('race-checkbox-') and v == 'on':
                 race_fis_id = int(k.replace('race-checkbox-',''))
-                race_event, created = fis_connector.get_new_race_results(race_fis_id, selected_season)
+                try:
+                    race_event, created = fis_connector.get_new_race_results(race_fis_id, selected_season)
+                except fis_connector.FISRateLimited as e:
+                    messages.warning(request, '%s - load the remaining races again shortly' % e)
+                    break
                 if created:
                     created_races.append(race_event.short_name)
                 else:
@@ -447,6 +459,8 @@ def update_wc_start_list(request):
         summary = fis_connector.update_ws_start_list()
         msg = f"WC Startlist processed: created {summary['created']}, updated {summary['updated']}, total {summary['total']}"
         messages.info(request, msg)
+        if summary['rate_limited']:
+            messages.warning(request, 'FIS rate limited the start list update, run it again in a minute to finish it')
         if summary['errors']:
             messages.warning(request, f"Encountered {len(summary['errors'])} issues: {', '.join(summary['errors'][:5])}{' ...' if len(summary['errors'])>5 else ''}")
     except Exception as e:
@@ -459,9 +473,16 @@ def rescore_all_races(request, season_id):
 
     TippPointTally.objects.filter(race_event__season__pk=season_id).delete()
 
+    rate_limited = False
     for race_event in RaceEvent.objects.filter(season__pk=season_id, finished=True).order_by('race_date'):
         
-        race_event = fis_connector.get_race_results(race_event.fis_id)
+        # once FIS starts rate limiting, score the remaining races from the results already stored
+        if not rate_limited:
+            try:
+                race_event = fis_connector.get_race_results(race_event.fis_id)
+            except fis_connector.FISRateLimited as e:
+                rate_limited = True
+                messages.warning(request, '%s - races from %s on were scored from stored results' % (e, race_event))
 
         if not race_event.start_list.exists():
             #race results are not published

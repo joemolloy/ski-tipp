@@ -4,6 +4,15 @@
 
 {% if events %}
 
+    {% if rate_limited %}
+    <script>
+        $('#request-errors').append(`<div class="alert alert-dismissible fade show alert-warning" role="alert">
+            FIS rate limited loading the calendar, so some events are missing. Reload in a minute to see them.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        </div>`)
+    </script>
+    {% endif %}
+
     <form action="{% url 'upload_races_bulk' selected_season.pk %}" method="post" class="form" id="bulk-race-form">
 
     {% csrf_token %}
@@ -12,6 +21,9 @@
         
     <div class="form-group">
         <h4>{{event.event_place}}</h4>
+        {% if event.error %}
+        <p class="text-danger">Could not load this event: {{ event.error }}</p>
+        {% endif %}
         {% for race in event.races %}
         <div>
             <input type="checkbox" name="race-checkbox-{{race.fis_id}}" 

@@ -21,6 +21,17 @@ HEADERS = {
     "Referer": "https://www.fis-ski.com/DB/",
 }
 
+class FISRateLimited(RuntimeError):
+    pass
+
+def fis_get(url, session=None, timeout=15):
+    # FIS answers 429 after roughly 40 requests in a short window
+    resp = (session or requests).get(url, headers=HEADERS, timeout=timeout)
+    if resp.status_code == 429:
+        raise FISRateLimited("FIS is rate limiting requests, wait a minute and try again")
+    resp.raise_for_status()
+    return resp
+
 def create_short_name(race_name, race_kind):
     abrv_name = race_name[:4].strip()
 
@@ -83,11 +94,9 @@ def update_ws_start_list():
     fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2027&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
 
     try:
-        resp = requests.get(fis_base_link, timeout=15, headers=HEADERS)
+        resp = fis_get(fis_base_link)
     except Exception as e:
         raise RuntimeError(f"Failed to fetch WC start list page: {e}")
-    if resp.status_code != 200:
-        raise RuntimeError(f"WC start list page returned {resp.status_code}")
 
     tree = html.fromstring(resp.content)
 
@@ -114,29 +123,40 @@ def update_ws_start_list():
     if len(racer_links) != len(racer_names):
         print('Warning: racer links and names length mismatch', len(racer_links), len(racer_names))
 
+    # reuse FIS codes of racers we already know, so we only fetch profiles for new names.
+    # Only racers with race results count: some old rows were stored under the FIS competitor id,
+    # and older seasons stored names with trailing whitespace and the ski brand
+    known_racers = [
+        (re.sub(r'\s+', ' ', r.name).strip(), r.fis_id)
+        for r in Racer.objects.filter(start_lists__isnull=False).distinct()
+    ]
+
+    def find_known_fis_id(name):
+        matches = {fis_id for known, fis_id in known_racers if known == name or known.startswith(name + ' ')}
+        return matches.pop() if len(matches) == 1 else None
+
     # set all racers to inactive first
     Racer.objects.update(active=False, rank=None)
 
     created_count = 0
     updated_count = 0
     errors = []
+    rate_limited = False
 
     session = requests.Session()
 
     for i, link in enumerate(racer_links):
         try:
-            r_resp = session.get(link, timeout=10, headers=HEADERS)
-            if r_resp.status_code != 200:
-                errors.append(f"{link} status {r_resp.status_code}")
-                continue
-            racer_tree = html.fromstring(r_resp.content)
-            # Safe extraction of FIS code
-            fis_code_nodes = racer_tree.xpath('//li[@id="FIS Code"]/span[@class="profile-info__value"]/text()')
-            if not fis_code_nodes:
-                errors.append(f"Missing FIS Code on page {link}")
-                continue
-            fis_id = int(fis_code_nodes[0].strip())
             racer_name = racer_names[i] if i < len(racer_names) and racer_names[i] else 'UNKNOWN'
+            fis_id = find_known_fis_id(racer_name)
+            if fis_id is None:
+                racer_tree = html.fromstring(fis_get(link, session=session, timeout=10).content)
+                # Safe extraction of FIS code
+                fis_code_nodes = racer_tree.xpath('//li[@id="FIS Code"]/span[@class="profile-info__value"]/text()')
+                if not fis_code_nodes:
+                    errors.append(f"Missing FIS Code on page {link}")
+                    continue
+                fis_id = int(fis_code_nodes[0].strip())
             print(i, fis_id, racer_name, link)
 
             obj, created = Racer.objects.update_or_create(
@@ -146,10 +166,14 @@ def update_ws_start_list():
                 created_count += 1
             else:
                 updated_count += 1
+        except FISRateLimited as e:
+            errors.append(f"{e} (stopped at {racer_name}, rank {i + 1})")
+            rate_limited = True
+            break
         except Exception as e:
             errors.append(f"{link} error {e}")
 
-    return dict(created=created_count, updated=updated_count, total=len(racer_links), errors=errors)
+    return dict(created=created_count, updated=updated_count, total=len(racer_links), errors=errors, rate_limited=rate_limited)
 
 def process_racer_row(row_element, processing_dnf=False):
     cols = row_element.xpath('./div')
@@ -255,7 +279,7 @@ def get_new_race_results(fis_race_id, season):
 
     fis_base_link = 'https://www.fis-ski.com/DB/general/results.html?sectorcode=AL&raceid={}'
     
-    resp = requests.get(fis_base_link.format(fis_race_id), headers=HEADERS)
+    resp = fis_get(fis_base_link.format(fis_race_id))
 
     tree = html.fromstring(resp.content)
 
