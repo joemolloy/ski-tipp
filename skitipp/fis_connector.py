@@ -80,7 +80,7 @@ def get_results_html_table(tree):
     return tree.xpath('//div[@id="events-info-results"]')[0]
 
 def update_ws_start_list():
-    fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2025&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
+    fis_base_link = 'https://www.fis-ski.com/DB/alpine-skiing/cup-standings.html?sectorcode=AL&seasoncode=2027&cupcode=WCSL&disciplinecode=ALL&gendercode=M&nationcode='
 
     try:
         resp = requests.get(fis_base_link, timeout=15, headers=HEADERS)
