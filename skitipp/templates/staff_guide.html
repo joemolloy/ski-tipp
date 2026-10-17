@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<style type="text/css">
+    .staff-guide { max-width: 760px; }
+    .staff-guide h4 { margin-top: 2rem; }
+    .staff-guide li { margin-bottom: .4rem; }
+</style>
+
+<div class="staff-guide">
+
+<h3>Staff guide</h3>
+<p>How to run a season. Staff-only buttons are hidden from tippers.</p>
+
+<p>
+    <a href="#new-season">New season</a> ·
+    <a href="#load-races">Load races</a> ·
+    <a href="#start-list">Start list</a> ·
+    <a href="#race-day">Race day</a> ·
+    <a href="#edit-race">Edit a race</a> ·
+    <a href="#tipp-for-someone">Tipp for someone</a> ·
+    <a href="#tippers">Tippers</a> ·
+    <a href="#points">Point adjustments</a> ·
+    <a href="#rescore">Rescore</a> ·
+    <a href="#fis-limits">FIS limits</a>
+</p>
+
+<h4 id="new-season">Start a new season</h4>
+<ol>
+    <li>Go to <a href="{% url 'create_season' %}">Season → New</a>.</li>
+    <li>Enter the name (e.g. 2026/2027) and start and end dates.</li>
+    <li>For <b>FIS calendar</b>, use the men's World Cup calendar for the season, e.g.
+        <code>https://www.fis-ski.com/DB/alpine-skiing/calendar-results.html?sectorcode=AL&amp;seasoncode=2027&amp;categorycode=WC&amp;gendercode=M</code>.
+        FIS numbers seasons by their end year.</li>
+    <li>Tick <b>Current</b>.</li>
+    <li>Tippers are copied from the last season. Remove anyone who isn't playing (see <a href="#tippers">Tippers</a>).</li>
+    <li>Click <b>Create Season</b>.</li>
+    <li>Open last season from the season menu, go to Season → Edit and untick <b>Current</b>. Only one season should be current.</li>
+    <li><a href="#load-races">Load the races</a> and <a href="#start-list">update the start list</a>.</li>
+</ol>
+
+<h4 id="load-races">Load races from the FIS calendar</h4>
+<ol>
+    <li>Go to <a href="{% url 'edit_season' selected_season.pk %}">Season → Edit</a>. The FIS calendar loads on the right, which takes a few seconds.</li>
+    <li>Tick the races to add, or use <b>Select all</b>. Races already added are ticked and greyed out.</li>
+    <li>Click <b>Load races</b>.</li>
+</ol>
+<p>Only men's races are listed. If you load a whole season at once, FIS may stop answering partway through (<a href="#fis-limits">FIS limits</a>). Wait a minute, reload the page, click Select all again and load the rest.</p>
+<p>FIS adds start times later in the season. Until then a race shows midnight on race day, which closes tipping early. Use <b>Update details from FIS</b> on the race to pick up the real time.</p>
+
+<h4 id="start-list">Update the start list</h4>
+<p>User menu → <a href="{% url 'update_racers' %}">Update Start Lists</a>. This loads the current World Cup start list from FIS and sets which racers tippers can choose. Run it at the start of the season and whenever new racers appear in races.</p>
+
+<h4 id="race-day">Race day</h4>
+<ol>
+    <li>Tipps saved after the race start time don't count.</li>
+    <li><b>Publish tipps</b> on the race page closes tipping and makes everyone's tipps visible. Any logged-in user can do this once the race has started.</li>
+    <li>When FIS has the results, click <b>Score Race</b>. This fetches the results and scores every tipp. If FIS changes the results later (e.g. a disqualification), click it again.</li>
+</ol>
+
+<h4 id="edit-race">Edit a race</h4>
+<p>On the race page click <b>Edit</b>. You can change:</p>
+<ul>
+    <li><b>Location</b> and <b>Short name</b> (max 10 characters, used on the leaderboard).</li>
+    <li><b>Race date</b>. <b>Update details from FIS</b> overwrites it until the race is scored.</li>
+    <li><b>Points multiplier</b>, e.g. 2 for a double-points race.</li>
+    <li><b>Is classic</b>: the single best tipper gets +2 instead of +1.</li>
+    <li><b>Cancelled</b>: marks the race cancelled and stops tipping.</li>
+</ul>
+<p>Changes to the multiplier or classic only count after you click <b>Score Race</b> again.</p>
+<p>To delete a race, use the delete link on the edit page. This also deletes its tipps.</p>
+
+<h4 id="tipp-for-someone">Enter or correct a tipp for someone</h4>
+<p>There is no button for this. Open this address, replacing the race ID and username:</p>
+<p><code>{{ request.scheme }}://{{ request.get_host }}/app/season/{{ selected_season.pk }}/race/&lt;race FIS ID&gt;/manual_tipp/&lt;username&gt;</code></p>
+<p>The race FIS ID is shown on the race page. A tipp entered here counts even after the race has started. Then click <b>Score Race</b> if the race is already scored.</p>
+
+<h4 id="tippers">Tippers</h4>
+<p><b>New tipper</b></p>
+<ol>
+    <li>They sign up on the login page.</li>
+    <li>Members of the <b>Season Admin</b> group get an email with an activation link. Click it, and the tipper is emailed that their account is active.
+        You can also activate them in <a href="/admin/auth/user/">Admin → Users</a> by ticking <b>Active</b>.</li>
+    <li>Add them to the season: <a href="{% url 'edit_season' selected_season.pk %}">Season → Edit</a>, select them in <b>Tippers</b>, Save Changes.</li>
+</ol>
+<p><b>Remove a tipper</b></p>
+<p>Season → Edit, deselect them in <b>Tippers</b>, Save Changes. Their past tipps are kept. Hold Ctrl (Cmd on Mac) when clicking, or the list selects only that one person.</p>
+<p>To stop someone logging in at all, untick <b>Active</b> in <a href="/admin/auth/user/">Admin → Users</a>.</p>
+<p><b>SMS reminders</b> go to the mobile number on the user's page in <a href="/admin/auth/user/">Admin → Users</a>.</p>
+
+<h4 id="points">Point adjustments</h4>
+<p>Use <a href="{% url 'point_adjustments' selected_season.pk %}">Points</a> to add or remove points for a tipper, with a reason. <b>Preseason</b> marks points carried in before the first race. <b>Applicable to</b> sets whether they count on the overall leaderboard, the discipline leaderboards or both. Delete an adjustment with the x next to it.</p>
+
+<h4 id="rescore">Rescore the season</h4>
+<p>Open the <a href="{% url 'leaderboard' selected_season.pk 'Overall' %}">Overall leaderboard</a> and click <b>Rescore all Races</b> (current season only). This refetches results for every scored race and recalculates all points. Use it after changing scoring rules or fixing several races. For one race, use <b>Score Race</b> on that race instead.</p>
+<p>If FIS stops answering partway through, the remaining races are scored from the results already saved, and a warning says from which race.</p>
+
+<h4 id="fis-limits">FIS limits</h4>
+<p>FIS stops answering after about 40 requests in a short time. You'll see a yellow warning saying so. Nothing is lost: wait a minute and repeat the action. Loading the calendar uses about 20 requests, and each race loaded or scored uses one.</p>
+<p>If something fails without that warning, FIS has probably changed its page layout, and the scraper needs fixing.</p>
+
+</div>
+{% endblock %}

@@ -58,7 +58,7 @@ class SeasonContextMixin(ContextMixin):
         context = super().get_context_data(**kwargs)
 
         season_id = self.kwargs.get('season_id')
-        if not season_id and self.object:
+        if not season_id and getattr(self, 'object', None):
             season_id = self.object.pk
         print('context: ' + str(season_id))
 
@@ -551,6 +551,12 @@ def deletePointAdjustment(request, season_id, adjustment_id):
 
 class AboutView(TemplateView):
     template_name = "about.html"
+
+class StaffGuideView(LoginRequiredMixin, UserPassesTestMixin, SeasonContextMixin, TemplateView):
+    template_name = "staff_guide.html"
+
+    def test_func(self):
+        return self.request.user.is_staff
 
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout, authenticate, login

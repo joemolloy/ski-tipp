@@ -43,6 +43,8 @@ urlpatterns = [
 
     path('racers/update_start_list/', views.update_wc_start_list, name='update_racers'),
 
+    path('guide/', views.StaffGuideView.as_view(), name='staff_guide'),
+
     path(
         r'racer-autocomplete/',
         views.RacerAutocomplete.as_view(),
