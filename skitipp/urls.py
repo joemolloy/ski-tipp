@@ -25,6 +25,7 @@ urlpatterns = [
     path('season/<int:season_id>/race/<int:race_id>/manual_tipp/<tipper>', views.ManualTippView.as_view(), name='manual_tipp'),
 
 
+    path('season/create/', views.SeasonCreateView.as_view(), name='create_season'),
     path('season/<int:pk>/edit/', views.SeasonEditView.as_view(), name='edit_season'),
 
 

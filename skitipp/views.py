@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django import http
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -163,6 +163,23 @@ class SeasonEditView(LoginRequiredMixin, SuccessMessageMixin, SeasonContextMixin
     model = Season
     form_class = SeasonEditForm
     success_message = "Season %(name)s was successfully updated"
+
+class SeasonCreateView(LoginRequiredMixin, UserPassesTestMixin, SuccessMessageMixin, SeasonContextMixin, CreateView):
+    template_name = 'season_edit_form.html'
+    model = Season
+    form_class = SeasonEditForm
+    success_message = "Season %(name)s was successfully created"
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # carry the tippers over from the most recent season that has any
+        previous_season = Season.objects.filter(tippers__isnull=False).distinct().order_by('-start_date').first()
+        if previous_season:
+            initial['tippers'] = previous_season.tippers.all()
+        return initial
 
 
 
