@@ -1,0 +1,26 @@
+[project]
+name = "ski-tipp"
+version = "0.1.0"
+description = "Platform for running a Ski World Cup Tipping Comp, built on Django."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=5.2.18,<5.3",
+    "django-autocomplete-light>=3.12.1,<4",
+    "django-extensions>=3.2.3,<4",
+    "django-ses>=4.8.2,<5",
+    "gunicorn>=23.0.0,<24",
+    "lxml>=5.4.0,<6",
+    "cssselect>=1.6.0,<2",
+    "requests>=2.34.2,<3",
+    "python-dateutil>=2.9.0,<3",
+]
+
+[dependency-groups]
+dev = [
+    "ipython",
+    "jupyter",
+]
+
+[tool.uv]
+package = false
