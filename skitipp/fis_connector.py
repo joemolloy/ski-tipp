@@ -56,7 +56,8 @@ def extract_race_info(tree, fis_race_id, season=None):
     race_kind = tree.xpath('//div[@class="event-header__kind"]/text()')[0]
     race_kind =     race_kind.strip().split(' ', 1)[1].strip()   #remove "Men's " from race_kind
 
-    race_date = tree.xpath('//span[@class="date__full"]/text()')[0]
+    # before start times are published the date sits in a nested div, so take the whole text
+    race_date = tree.xpath('string(//span[@class="date__full"])').strip()
 
     race_time_elems = tree.xpath('//div[@class="timezone-time"]')
     

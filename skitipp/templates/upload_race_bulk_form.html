@@ -16,6 +16,18 @@
     <form action="{% url 'upload_races_bulk' selected_season.pk %}" method="post" class="form" id="bulk-race-form">
 
     {% csrf_token %}
+
+    <div class="form-group">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-races">Select all</button>
+    </div>
+    <script>
+        $('#select-all-races').on('click', function() {
+            var boxes = $('#bulk-race-form input[type=checkbox]:not(:disabled)')
+            var selectAll = boxes.filter(':not(:checked)').length > 0
+            boxes.prop('checked', selectAll)
+            $(this).text(selectAll ? 'Select none' : 'Select all')
+        })
+    </script>
     
     {% for event in events %}
         
