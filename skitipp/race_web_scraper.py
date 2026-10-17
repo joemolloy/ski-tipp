@@ -31,7 +31,7 @@ def get_season_events(calendar_url, season_id):
         if event_url:
             try:
                 event_page = session.get(event_url, timeout=10, headers=HEADERS)
-                event_tree = html.fromstring(event_page.content)
+                event_tree = html.fromstring(event_page.content, parser=html.HTMLParser(encoding='utf-8'))
                 header_name = event_tree.cssselect('h1.event-header__name')
                 if header_name:
                    place_text = header_name[0].text_content().strip()
