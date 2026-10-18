@@ -67,6 +67,7 @@ All runs used the same five-winter backtest. Methods were compared on podium log
 | + race-level alle im Ziel model | speed log-loss -0.575 → -0.516 | +0.02 ± 0.01 |
 | + venue-weighted SG/DH link (venue form and this weekend's sister race) | -0.01 ± 0.02 | -0.04 ± 0.04 (removed) |
 | race-day weather (Open-Meteo archive, `fetch_weather.py`) vs late-bib luck and DNFs | no correlation beyond noise in 277 races | not used |
+| + the crowd's recent picks per discipline (lagged: past races' published tipps), and picks beyond form | +0.02 ± 0.015 | -0.01 ± 0.05 (not kept) |
 
 The Markov model and the simple ratings carry different information, and the combination beats either one. A nonlinear model doesn't help: with a few hundred races, the trees overfit and a linear model is about as good as it gets. More form states (3 to 6), fitting on the top 5 or top 10 places instead of the podium, and other decay rates were all within noise.
 
