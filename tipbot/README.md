@@ -66,6 +66,7 @@ All runs used the same five-winter backtest. Methods were compared on podium log
 | + venue DNF rate (DNF log-likelihood) | +0.07 ± 0.07 | -0.02 ± 0.01 |
 | + race-level alle im Ziel model | speed log-loss -0.575 → -0.516 | +0.02 ± 0.01 |
 | + venue-weighted SG/DH link (venue form and this weekend's sister race) | -0.01 ± 0.02 | -0.04 ± 0.04 (removed) |
+| race-day weather (Open-Meteo archive, `fetch_weather.py`) vs late-bib luck and DNFs | no correlation beyond noise in 277 races | not used |
 
 The Markov model and the simple ratings carry different information, and the combination beats either one. A nonlinear model doesn't help: with a few hundred races, the trees overfit and a linear model is about as good as it gets. More form states (3 to 6), fitting on the top 5 or top 10 places instead of the podium, and other decay rates were all within noise.
 
@@ -92,6 +93,17 @@ Two things that sound important turned out not to be:
 - **Course-specific SG/DH links.** They're real (SG/DH correlation 0.5 at Lake Louise and Kvitfjell, 0.32 at Beaver Creek), but the bot's per-discipline venue form, decayed points and training runs already cover it.
 
 Alle im Ziel does vary by course (in the first 30, everyone finished 4 of 6 Garmisch downhills but only 2 of 16 at Bormio). With about 90 speed races, though, a calibrated race-level model only matches the long-run 21% rate. It doesn't beat it.
+
+### Winning the season
+
+A season simulator entered the bot as one more tipper in each past season. It started from the stored tallies (reproducing the real leaderboards exactly), recomputed the alleinsieger with the bot included, and applied each race's points multiplier and the points adjustments. The plain bot would have won 3 of the 7 World Cup seasons (2021/22, 2022/23, 2024/25), and come 2nd in 2025/26 and 3rd in 2023/24. Championships, with only 5 races each, go to whoever lands a big multiplier, and the bot finishes mid-field.
+
+Two ways of playing for the win instead of the race, both judged on the chance of winning over 400 resampled versions of each season:
+
+- **Alleinsieger-aware tipping.** A crowd model learned from past tipps simulates what rivals pick, and the bot adds the expected sole-best bonus to each tipp. World Cup total 700.7 vs 701.7 for the plain bot. The bonus is too rare to be worth giving up expected points.
+- **Risk by standings.** Expected points plus λ × spread, with λ set by the gap to the leader and the races left. Gambling when behind lowers the chance of winning (31% → 27–30%), and protecting a lead doesn't raise it (29–31%). Variance from the race results swamps what the tipp choice can add.
+
+So plain expected-points tipping is also the best way to win the season.
 
 ### Tippers and big multipliers
 
