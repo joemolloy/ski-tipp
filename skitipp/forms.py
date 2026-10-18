@@ -156,12 +156,12 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
         model = User
         fields = ("first_name", "last_name", "email")
         labels = {
-            "first_name": "First name",
-            "last_name": "Last name",
-            "email": "Email",
+            "first_name": "First name (optional)",
+            "last_name": "Last name (optional)",
+            "email": "Email (optional)",
         }
         help_texts = {
-            "email": "Optional, but reminders need it.",
+            "email": "Reminders are sent here, so without it you won't get any.",
         }
 
     def __init__(self, *args, tipper=None, **kwargs):
