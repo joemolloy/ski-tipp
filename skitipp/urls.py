@@ -14,6 +14,7 @@ urlpatterns = [
     path('race/<int:pk>/delete/', views.RaceEventDeleteView.as_view(), name='delete_race'),
 
     path('race/<int:race_id>/tipp/', views.TippCreateView.as_view(), name='create_tipp'),
+    path('auto_tipp/toggle/', views.toggle_auto_tipp, name='toggle_auto_tipp'),
     
     path('race/<int:race_id>/update/', views.update_race, name='update_race'),
     path('race/<int:race_id>/publish/', views.publish_tipps, name='publish_tipps'),

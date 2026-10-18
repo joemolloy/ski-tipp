@@ -1,15 +1,22 @@
+from collections import Counter
+import datetime
+
 from django.db.models import Count, Q
 
 from . import models as models
 
 def score_race(race_event):
+    create_auto_tipps(race_event)
     last_tipps = race_event.get_last_tipps
 
     user_tallies = [score_tipp(t) for t in last_tipps]
-    
-    if user_tallies:
-        best_score = max([ut.total_points for ut in user_tallies])
-        best_tippers = [ut for ut in user_tallies if ut.total_points == best_score]
+
+    #auto-tipps are the crowd's tipp, so they can't win or block the alleinsieger bonus
+    real_tallies = [ut for ut in user_tallies if not ut.tipp.auto_tipp]
+
+    if real_tallies:
+        best_score = max([ut.total_points for ut in real_tallies])
+        best_tippers = [ut for ut in real_tallies if ut.total_points == best_score]
 
         #allinerseiger
         if len(best_tippers) == 1:
@@ -20,6 +27,47 @@ def score_race(race_event):
             best_tippers[0].save()
 
     apply_missed_tipp_penalties(race_event, user_tallies)
+
+def consensus_picks(tipps):
+    """The most tipped racer for each podium place (each racer used once) and the most tipped dnf."""
+    picks = []
+    for slot in ("place_1_id", "place_2_id", "place_3_id"):
+        slot_counts = Counter(getattr(t, slot) for t in tipps)
+        all_counts = Counter(getattr(t, s) for t in tipps for s in ("place_1_id", "place_2_id", "place_3_id"))
+        pick = next((r for r, _ in slot_counts.most_common() if r not in picks), None)
+        if pick is None:
+            pick = next(r for r, _ in all_counts.most_common() if r not in picks)
+        picks.append(pick)
+
+    dnf_counts = Counter(t.dnf_id for t in tipps if t.dnf_id is not None)
+    dnf = dnf_counts.most_common(1)[0][0] if dnf_counts else None
+
+    return dict(place_1_id=picks[0], place_2_id=picks[1], place_3_id=picks[2], dnf_id=dnf)
+
+def create_auto_tipps(race_event):
+    """Tippers who opted into auto-tipp and forgot this race get the crowd's consensus tipp."""
+    last_tipps = race_event.get_last_tipps
+    real_tipps = [t for t in last_tipps if not t.auto_tipp]
+    if not real_tipps:
+        return []
+
+    forgetful = race_event.season.tippers.filter(
+        is_active=True, tipper__auto_tipp_since__lt=race_event.race_date
+    ).exclude(id__in=[t.tipper_id for t in last_tipps])
+
+    picks = consensus_picks(real_tipps)
+    auto_tipps = []
+    for user in forgetful:
+        tipp = models.Tipp.objects.create(
+            tipper=user, race_event=race_event, auto_tipp=True,
+            comment="Auto-tipp: the crowd's consensus", **picks
+        )
+        #created is auto_now_add; backdate it so get_last_tipps counts it as a pre-race tipp
+        models.Tipp.objects.filter(pk=tipp.pk).update(created=race_event.race_date - datetime.timedelta(minutes=1))
+        auto_tipps.append(tipp)
+        print("auto-tipp for {} on {}".format(user, race_event))
+
+    return auto_tipps
 
 def apply_missed_tipp_penalties(race_event, user_tallies):
     tippers = [rt.tipper.id for rt in user_tallies]

@@ -65,9 +65,21 @@ set -a; . ./.env; set +a
 uv run manage.py migrate
 ```
 
-## SMS reminders
+## Reminders
 
-`uv run manage.py notify_upcoming_races` texts tippers about races in the next day. Options: `--days N`, `--dryrun`, `--resend`.
+`uv run manage.py notify_upcoming_races` reminds tippers about races in the next 24 hours, but only those with no tipp yet or with a podium pick who isn't on the start list. It sends an email, and an SMS too when the tipper has a mobile number. A tipper isn't reminded about the same race twice within 12 hours. Options: `--hours N`, `--min-gap-hours N`, `--dryrun`, `--resend`.
+
+The server runs it every hour with `--hours 18` from a systemd timer, so a forgetful tipper gets one reminder the afternoon before and another a few hours before the start. To install the timer:
+
+```
+sudo cp deploy/ski-tipp-reminders.service deploy/ski-tipp-reminders.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ski-tipp-reminders.timer
+```
+
+## Auto-tipp
+
+Tippers can turn on auto-tipp at the top of the race list. When the tipps are published or the race is finalized, anyone with auto-tipp on and no tipp gets the crowd's consensus tipp: the most tipped racer for 1st, 2nd and 3rd, and the most tipped DNF. It only applies to races that start after they turned it on, so rescoring a season doesn't fill in old races. Auto-tipps show an "auto" badge and can't win the alleinsieger bonus, or block it for anyone else.
 
 ## FIS scraping
 

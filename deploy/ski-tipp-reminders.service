@@ -1,0 +1,9 @@
+[Unit]
+Description=ski-tipp: remind tippers about races they haven't tipped
+
+[Service]
+Type=oneshot
+User=bitnami
+WorkingDirectory=/opt/bitnami/projects/ski-tipp
+EnvironmentFile=/opt/bitnami/projects/ski-tipp/.env
+ExecStart=/opt/bitnami/projects/ski-tipp/.venv/bin/python manage.py notify_upcoming_races --hours 18

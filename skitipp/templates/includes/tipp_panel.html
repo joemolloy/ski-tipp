@@ -4,6 +4,7 @@
             <div class="tipper"> <b> 
                 {{ tipp.tipper.username }} </b>
                 {% if tipp.race_event.finished and tipp.tipp_points_tally.is_best_tipp %}  👑 {% endif %}
+                {% if tipp.auto_tipp %} <span class="badge badge-secondary" title="Auto-tipp: the crowd's consensus">auto</span> {% endif %}
             </div>
             
             <div class="place1"> {{ tipp.place_1 }} </div>
