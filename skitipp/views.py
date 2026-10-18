@@ -653,9 +653,11 @@ def email_admin_about_registration(request, user):
 
         approval_link = request.build_absolute_uri(reverse('activate_user', kwargs=dict(username=user.username)))
 
-        approver_emails = [u.email for u in User.objects.filter(groups__name='Season Admin')]
-        if approver_emails is None or approver_emails == []:
-            approver_emails = [User.objects.filter(username='joemolloy').get().email]
+        # Season Admins approve registrations; if there are none, the superusers do
+        with_email = User.objects.filter(is_active=True).exclude(email='')
+        approver_emails = list(with_email.filter(groups__name='Season Admin').values_list('email', flat=True).distinct())
+        if not approver_emails:
+            approver_emails = list(with_email.filter(is_superuser=True).values_list('email', flat=True).distinct())
 
         print('Approver emails:', approver_emails)
 
