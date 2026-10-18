@@ -34,7 +34,7 @@ jmespath==1.1.0
     # via
     #   boto3
     #   botocore
-lxml==5.4.0
+lxml==6.1.3
     # via ski-tipp
 packaging==26.3
     # via gunicorn
