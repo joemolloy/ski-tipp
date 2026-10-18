@@ -142,11 +142,6 @@ class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
         user = super(CustomSignUpForm, self).save(commit=False)
         user.is_active = False
 
-        default_season = Season.objects.all().order_by('pk').last()
-
         if commit:
             user.save()
-
-            default_season.tippers.add(user)
-            default_season.save()
         return user

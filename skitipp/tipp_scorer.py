@@ -1,4 +1,3 @@
-from django.contrib.auth.models import User
 from django.db.models import Count, Q
 
 from . import models as models
@@ -26,7 +25,7 @@ def apply_missed_tipp_penalties(race_event, user_tallies):
     tippers = [rt.tipper.id for rt in user_tallies]
 
     #get the count of missed races for each user who didnt tip, before to the current race (race_event)
-    non_tippers = User.objects.exclude(id__in=tippers).annotate(
+    non_tippers = race_event.season.tippers.filter(is_active=True).exclude(id__in=tippers).annotate(
         prev_no_tipp_offences=Count("user_points_tally", filter=Q(
                 user_points_tally__race_event__season=race_event.season,
                 user_points_tally__race_event__race_date__lt=race_event.race_date,

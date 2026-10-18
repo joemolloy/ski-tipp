@@ -206,9 +206,12 @@ class TippCreateView(LoginRequiredMixin, SeasonContextMixin, CreateView):
         race_event = self.object.race_event
         return race_event.get_absolute_url()
 
-class ManualTippView(LoginRequiredMixin, SeasonContextMixin, CreateView):
+class ManualTippView(LoginRequiredMixin, UserPassesTestMixin, SeasonContextMixin, CreateView):
     template_name = 'tipp_create_form.html'
     form_class = TippForm
+
+    def test_func(self):
+        return self.request.user.is_staff
     
     def get_context_data(self, **kwargs):
         context = super(ManualTippView, self).get_context_data(**kwargs)
@@ -438,6 +441,7 @@ def update_race(request, race_id):
     return HttpResponseRedirect(race_event.get_absolute_url())
 
 
+@login_required
 def publish_tipps(request, race_id):
     race_event = fis_connector.get_race_results(race_id)
 
@@ -519,11 +523,14 @@ def finalize_race(request, race_id):
     messages.success(request, "{} was finalized".format(race_event))
     return HttpResponseRedirect(race_event.get_absolute_url())
 
-class PointAdjustmentListView(SeasonContextMixin, CreateView):
-
-    
+class PointAdjustmentListView(LoginRequiredMixin, UserPassesTestMixin, SeasonContextMixin, CreateView):
     form_class = PointAdjustmentForm
     template_name = "point_adjustments.html"
+
+    def test_func(self):
+        # everyone can see the adjustments, only staff can add them
+        return self.request.method == 'GET' or self.request.user.is_staff
+
     try:
         current_season = Season.objects.filter(current=True).first()
         initial={'season': current_season}
@@ -655,6 +662,11 @@ def activate_user(request, username):
     user = get_object_or_404(User, username=username)
     user.is_active = True
     user.save()
+
+    # only approved users join a season, so spam sign-ups never reach a leaderboard
+    default_season = Season.objects.all().order_by('pk').last()
+    if default_season:
+        default_season.tippers.add(user)
 
     login_url = request.build_absolute_uri(reverse('login'))
 
