@@ -154,13 +154,15 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "email")
+        fields = ("username", "first_name", "last_name", "email")
         labels = {
+            "username": "Username",
             "first_name": "First name (optional)",
             "last_name": "Last name (optional)",
             "email": "Email (optional)",
         }
         help_texts = {
+            "username": "You log in with this, and other tippers see it on the leaderboard and tipps.",
             "email": "Reminders are sent here, so without it you won't get any.",
         }
 
@@ -168,6 +170,13 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.tipper = tipper
         self.fields["reminders"].initial = tipper.reminders if tipper else True
+
+    def clean_username(self):
+        # Django only checks exact matches, but "Joe" next to "joe" on the leaderboard would confuse everyone
+        username = self.cleaned_data["username"]
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("Another tipper already has this username.")
+        return username
 
     def save(self, commit=True):
         user = super().save(commit)
