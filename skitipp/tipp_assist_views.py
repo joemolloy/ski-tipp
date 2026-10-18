@@ -70,25 +70,32 @@ def upcoming_races(n):
                 .order_by("race_date")[:n])
 
 
-@tipp_assist_only
-def tipp_assist_page(request):
-    n = max(1, min(int(request.GET.get("n", 6)), 20))
+def assist_tipps(races, user):
+    """The tipbot's tipps for these races, with the expected points of the user's latest tipp.
+    Returns the results by race id, the user's tipps by race id, and a racer label function."""
     state = load_state()
-    races = upcoming_races(n)
     upcoming = [dict(fis_id=r.fis_id, kind=r.kind, date=naive_utc(r.race_date), name=r.short_name, location=r.location,
                      starters=list(r.start_list.values_list("racer_id", "start_number")))
                 for r in races]
     # the user's latest tipp per race; dnf 0 in the app means alle im Ziel
-    mine = {r.fis_id: r.tipps.filter(tipper=request.user).order_by("-created").first() for r in races}
+    mine = {r.fis_id: r.tipps.filter(tipper=user).order_by("-created").first() for r in races}
     current = {fid: ([t.place_1_id, t.place_2_id, t.place_3_id], t.dnf_id or None) for fid, t in mine.items() if t}
     eligible = set(Racer.objects.competitors().values_list("fis_id", flat=True))
     trainings = {int(k): v for k, v in state.get("training", {}).items()}
     results, names = markov_tipper.tipps_for(
         upcoming, settings.DATABASES["default"]["NAME"], [EXTRA], exclude=state.get("not_starting", []),
         eligible=eligible, trainings=trainings, now=naive_utc(timezone.now()), current=current)
-    by_id = {r["fis_id"]: r for r in results}
     racer_names = {**names, **dict(Racer.objects.values_list("fis_id", "name"))}
     label = lambda fis_id: (racer_names.get(fis_id) or str(fis_id)).split("\n")[0]
+    return {r["fis_id"]: r for r in results}, mine, label
+
+
+@tipp_assist_only
+def tipp_assist_page(request):
+    n = max(1, min(int(request.GET.get("n", 6)), 20))
+    state = load_state()
+    races = upcoming_races(n)
+    by_id, mine, label = assist_tipps(races, request.user)
 
     cards = []
     for race in races:

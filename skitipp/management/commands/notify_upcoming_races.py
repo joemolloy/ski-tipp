@@ -8,6 +8,7 @@ import logging
 
 from skitipp.context_processors import TIPP_ASSIST_GROUP
 from skitipp.models import SentReminder, RaceEvent, Tipp
+from skitipp.tipp_assist_views import assist_tipps
 import datetime
 from django.utils import timezone
 
@@ -34,16 +35,22 @@ class Command(BaseCommand):
             help="Remind about races starting in the next N hours",
         )
 
+        parser.add_argument(
+            '--better-by',
+            type=float, default=0.25,
+            help="Text Tipp-Assist members when the best tipp beats theirs by at least this many expected points",
+        )
+
 
     def handle(self, **options):
         now = timezone.now()
-        upcoming_races = RaceEvent.objects.filter(
+        upcoming_races = list(RaceEvent.objects.filter(
             cancelled=False,
             race_date__gt=now,
             race_date__lte=now + datetime.timedelta(hours=options['hours']),
-        ).select_related('season')
+        ).select_related('season'))
 
-        logging.warning(f"Checking {upcoming_races.count()} races in the next {options['hours']} hours")
+        logging.warning(f"Checking {len(upcoming_races)} races in the next {options['hours']} hours")
 
         sms_client = None
         if getattr(settings, 'AWS_ACCESS_KEY_ID', None):
@@ -54,19 +61,62 @@ class Command(BaseCommand):
                 region_name=settings.AWS_SES_REGION_NAME,
             )
 
+        assist_cache = {}
         for race in upcoming_races:
             if race.season is None:
                 continue
             tippers = race.season.tippers.filter(is_active=True).select_related('tipper')
             for user in tippers:
-                problem = tipp_problem(user, race)
-                if not problem:
-                    continue
-
                 if SentReminder.objects.filter(tipper=user, race_event=race).exists() and not options['resend']:
                     continue
 
-                send_reminder(sms_client, user, race, problem, options['dryrun'])
+                problem = tipp_problem(user, race)
+
+                suggestion = None
+                if gets_sms(user):
+                    if user.pk not in assist_cache:
+                        assist_cache[user.pk] = assist_for(user, upcoming_races)
+                    suggestion = better_tipp(assist_cache[user.pk], race, options['better_by'])
+
+                if problem or suggestion:
+                    send_reminder(sms_client, user, race, problem, suggestion, options['dryrun'])
+
+
+def gets_sms(user):
+    """Tipp-Assist members with a mobile number get an SMS as well as the email."""
+    mobile = user.tipper.mobile_number if hasattr(user, 'tipper') else ''
+    return bool(mobile) and user.groups.filter(name=TIPP_ASSIST_GROUP).exists()
+
+
+def assist_for(user, races):
+    # the tipbot shouldn't stop the reminders if it fails
+    try:
+        return assist_tipps(races, user)
+    except Exception:
+        logging.exception(f"Tipp-Assist failed for {user}")
+        return None
+
+
+def better_tipp(assist, race, better_by):
+    """Tipp-Assist's best tipp, if the user hasn't tipped or it beats their tipp by better_by expected points."""
+    if assist is None:
+        return None
+    by_id, _, label = assist
+    res = by_id.get(race.fis_id)
+    if not res:
+        return None
+
+    #FIS writes surnames in capitals: "PINHEIRO BRAATHEN Lucas" -> "PINHEIRO BRAATHEN"
+    name = lambda fis_id: " ".join(w for w in label(fis_id).split() if w.isupper()) or label(fis_id)
+    dnf = name(res["dnf"]) if res["dnf"] else "Alle im Ziel"
+    best = f"{', '.join(name(r) for r in res['podium'])}, DNF {dnf}"
+
+    current = res.get("current")
+    if current is None:
+        return f"Tipp-Assist: {best} ({res['expected']:.1f} Pkt erwartet)."
+    if res["expected"] - current["expected"] >= better_by:
+        return f"Tipp-Assist hat einen besseren Tipp: {best} ({res['expected']:.1f} statt {current['expected']:.1f} Pkt erwartet)."
+    return None
 
 
 def tipp_problem(user, race):
@@ -88,36 +138,46 @@ def tipp_problem(user, race):
     return None
 
 
-def send_reminder(sms_client, user, race, problem, dryrun):
+def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
     race_date = timezone.localtime(race.race_date)
     tipp_url = settings.SITE_URL + reverse('create_tipp', kwargs={'race_id': race.pk})
+    assist_url = settings.SITE_URL + reverse('tipp_assist')
 
     when = race_date.strftime("%d.%m. um %H:%M")
-    text = f"Hoi {user}, {race} ({race.location}) startet am {when}. {problem} Tippen: {tipp_url}"
+    intro = f"Hoi {user}, {race} ({race.location}) startet am {when}."
 
-    auto_tipp_on = hasattr(user, 'tipper') and user.tipper.auto_tipp_since is not None
-    if auto_tipp_on and problem.startswith("Du hast noch keinen"):
-        text += " (Auto-Tipp ist aktiv: ohne Tipp bekommst du den Tipp der Mehrheit.)"
+    #everyone gets an email about a missing or broken tipp
+    email_text = None
+    if problem and user.email:
+        email_text = f"{intro} {problem} Tippen: {tipp_url}"
+        auto_tipp_on = hasattr(user, 'tipper') and user.tipper.auto_tipp_since is not None
+        if auto_tipp_on and problem.startswith("Du hast noch keinen"):
+            email_text += " (Auto-Tipp ist aktiv: ohne Tipp bekommst du den Tipp der Mehrheit.)"
 
-    #everyone gets an email, Tipp-Assist members with a mobile number also get an SMS
-    mobile = user.tipper.mobile_number if hasattr(user, 'tipper') else ''
-    send_sms = bool(mobile) and user.groups.filter(name=TIPP_ASSIST_GROUP).exists()
+    #Tipp-Assist members with a mobile number also get an SMS, with Tipp-Assist's tipp when it's better
+    sms_text = None
+    if gets_sms(user) and (problem or suggestion):
+        parts = [intro, problem, suggestion, f"Tippen: {assist_url if suggestion else tipp_url}"]
+        sms_text = " ".join(p for p in parts if p)
 
-    channels = [c for c, on in (('email', bool(user.email)), ('sms', send_sms)) if on]
-    logging.warning(f"{'[dryrun] ' if dryrun else ''}{user} ({', '.join(channels) or 'no address'}): {text}")
-    if dryrun or not channels:
+    prefix = '[dryrun] ' if dryrun else ''
+    if email_text:
+        logging.warning(f"{prefix}{user} (email): {email_text}")
+    if sms_text:
+        logging.warning(f"{prefix}{user} (sms): {sms_text}")
+    if dryrun or not (email_text or sms_text):
         return
 
-    if user.email:
+    if email_text:
         send_mail(
             subject=f"Ski-tipp: {race} {race.location}",
-            message=text,
+            message=email_text,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=True,
         )
 
-    if send_sms and sms_client:
-        sms_client.publish(PhoneNumber=mobile, Message=text)
+    if sms_text and sms_client:
+        sms_client.publish(PhoneNumber=user.tipper.mobile_number, Message=sms_text)
 
     SentReminder(tipper=user, race_event=race).save()

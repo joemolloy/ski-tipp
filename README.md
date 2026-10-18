@@ -67,7 +67,9 @@ uv run manage.py migrate
 
 ## Reminders
 
-`uv run manage.py notify_upcoming_races` reminds tippers about races in the next 24 hours, but only when they have no tipp yet or a podium pick who isn't on the start list. Everyone gets an email, and members of the Tipp-Assist group with a mobile number (Admin → Users) also get an SMS. Each tipper gets at most one reminder per race. Options: `--hours N`, `--dryrun`, `--resend`.
+`uv run manage.py notify_upcoming_races` reminds tippers about races in the next 24 hours, but only when they have no tipp yet or a podium pick who isn't on the start list. Everyone gets an email, and members of the Tipp-Assist group with a mobile number (Admin → Users) also get an SMS. Each tipper gets at most one reminder per race. Options: `--hours N`, `--better-by P`, `--dryrun`, `--resend`.
+
+The SMS also carries Tipp-Assist's tipp. With no tipp yet, it suggests the best one. With a tipp, the SMS goes out when Tipp-Assist's best tipp beats it by at least 0.25 expected points (`--better-by`), even if nothing else is wrong with it.
 
 To check that SMS works, run `uv run manage.py send_test_sms +41791234567` on the server with `.env` loaded. It shows whether the AWS account is in the SMS sandbox and its spend limit, then sends a test message.
 
