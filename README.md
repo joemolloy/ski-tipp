@@ -69,6 +69,8 @@ uv run manage.py migrate
 
 `uv run manage.py notify_upcoming_races` reminds tippers about races in the next 24 hours, but only when they have no tipp yet or a podium pick who isn't on the start list. Everyone gets an email, and members of the Tipp-Assist group with a mobile number (Admin → Users) also get an SMS. Each tipper gets at most one reminder per race. Options: `--hours N`, `--dryrun`, `--resend`.
 
+To check that SMS works, run `uv run manage.py send_test_sms +41791234567` on the server with `.env` loaded. It shows whether the AWS account is in the SMS sandbox and its spend limit, then sends a test message.
+
 The server runs it once a day at 8:00 Zurich time from a systemd timer, so it covers that day's races, which start at 9:00 at the earliest. To install the timer:
 
 ```
