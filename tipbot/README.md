@@ -159,10 +159,10 @@ Server setup, once:
 2. In Admin → Groups, add a group called `Tipp-Assist` and put your user in it.
 3. Keep Tipp-Assist's data next to the database, outside the repo, so a re-clone can't wipe it. Create the folder and copy the scraped history up. Without the history, the bot still works but loses the warm-up seasons, training runs and ages:
    ```
-   ssh -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem bitnami@63.179.212.78 'mkdir -p /opt/bitnami/projects/db/tipbot'
-   scp -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem tipbot/data/fis.sqlite3 bitnami@63.179.212.78:/opt/bitnami/projects/db/tipbot/
+   ssh -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem bitnami@63.179.212.78 'mkdir -p /opt/bitnami/projects/db/tipp-assist'
+   scp -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem tipbot/data/fis.sqlite3 bitnami@63.179.212.78:/opt/bitnami/projects/db/tipp-assist/
    ```
-4. Point the app at it: add `TIPP_ASSIST_DATA=/opt/bitnami/projects/db/tipbot` to the server's `.env`, then restart (`sudo systemctl restart gunicorn`, or deploy).
+4. Point the app at it: add `TIPP_ASSIST_DATA=/opt/bitnami/projects/db/tipp-assist` to the server's `.env`, then restart (`sudo systemctl restart gunicorn`, or deploy).
 
 The page keeps its state (the not-starting list and fetched training runs) in `tipp_assist_state.json` in that folder. The server process writes it when you click Save or Rerun, so the user gunicorn runs as needs write access to the folder (`systemctl show -p User gunicorn`). The model's weights come from `model.json` in git: retrain locally now and then, then commit and deploy.
 
