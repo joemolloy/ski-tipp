@@ -172,6 +172,14 @@ def sms_text(race, problem, suggestion):
     return text if len(text) <= SMS_LENGTH else build(shorten=True)
 
 
+def publish_sms(sms_client, number, text):
+    # transactional SMS are time critical and get through carrier filters more reliably than the promotional default
+    return sms_client.publish(
+        PhoneNumber=number, Message=text,
+        MessageAttributes={'AWS.SNS.SMS.SMSType': {'DataType': 'String', 'StringValue': 'Transactional'}},
+    )
+
+
 def gsm_safe(text):
     # one character outside the GSM alphabet makes the whole SMS unicode, which fits only 70 characters
     return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()
@@ -214,6 +222,6 @@ def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
         )
 
     if sms and sms_client:
-        sms_client.publish(PhoneNumber=user.tipper.mobile_number, Message=sms)
+        publish_sms(sms_client, user.tipper.mobile_number, sms)
 
     SentReminder(tipper=user, race_event=race).save()
