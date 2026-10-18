@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.core.mail import send_mail
 from django.urls import reverse
+import boto3
 import logging
 
 from skitipp.context_processors import TIPP_ASSIST_GROUP
@@ -12,13 +13,13 @@ from django.utils import timezone
 
 
 class Command(BaseCommand):
-    help = "Email Tipp-Assist members who haven't tipped an upcoming race, or tipped a racer who isn't starting"
+    help = "Remind tippers who haven't tipped an upcoming race, or tipped a racer who isn't starting"
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--dryrun',
             action='store_true',
-            help="Don't send actual emails",
+            help="Don't send actual messages",
         )
 
         parser.add_argument(
@@ -44,10 +45,19 @@ class Command(BaseCommand):
 
         logging.warning(f"Checking {upcoming_races.count()} races in the next {options['hours']} hours")
 
+        sms_client = None
+        if getattr(settings, 'AWS_ACCESS_KEY_ID', None):
+            sms_client = boto3.client(
+                "sns",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_SES_REGION_NAME,
+            )
+
         for race in upcoming_races:
             if race.season is None:
                 continue
-            tippers = race.season.tippers.filter(is_active=True, groups__name=TIPP_ASSIST_GROUP).select_related('tipper')
+            tippers = race.season.tippers.filter(is_active=True).select_related('tipper')
             for user in tippers:
                 problem = tipp_problem(user, race)
                 if not problem:
@@ -56,7 +66,7 @@ class Command(BaseCommand):
                 if SentReminder.objects.filter(tipper=user, race_event=race).exists() and not options['resend']:
                     continue
 
-                send_reminder(user, race, problem, options['dryrun'])
+                send_reminder(sms_client, user, race, problem, options['dryrun'])
 
 
 def tipp_problem(user, race):
@@ -78,7 +88,7 @@ def tipp_problem(user, race):
     return None
 
 
-def send_reminder(user, race, problem, dryrun):
+def send_reminder(sms_client, user, race, problem, dryrun):
     race_date = timezone.localtime(race.race_date)
     tipp_url = settings.SITE_URL + reverse('create_tipp', kwargs={'race_id': race.pk})
 
@@ -89,19 +99,25 @@ def send_reminder(user, race, problem, dryrun):
     if auto_tipp_on and problem.startswith("Du hast noch keinen"):
         text += " (Auto-Tipp ist aktiv: ohne Tipp bekommst du den Tipp der Mehrheit.)"
 
-    logging.warning(f"{'[dryrun] ' if dryrun else ''}{user}: {text}")
-    if dryrun:
+    #everyone gets an email, Tipp-Assist members with a mobile number also get an SMS
+    mobile = user.tipper.mobile_number if hasattr(user, 'tipper') else ''
+    send_sms = bool(mobile) and user.groups.filter(name=TIPP_ASSIST_GROUP).exists()
+
+    channels = [c for c, on in (('email', bool(user.email)), ('sms', send_sms)) if on]
+    logging.warning(f"{'[dryrun] ' if dryrun else ''}{user} ({', '.join(channels) or 'no address'}): {text}")
+    if dryrun or not channels:
         return
 
-    if not user.email:
-        return
+    if user.email:
+        send_mail(
+            subject=f"Ski-tipp: {race} {race.location}",
+            message=text,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
 
-    send_mail(
-        subject=f"Ski-tipp: {race} {race.location}",
-        message=text,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=True,
-    )
+    if send_sms and sms_client:
+        sms_client.publish(PhoneNumber=mobile, Message=text)
 
     SentReminder(tipper=user, race_event=race).save()

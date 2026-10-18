@@ -1,5 +1,5 @@
 [Unit]
-Description=ski-tipp: email Tipp-Assist members about races they haven't tipped
+Description=ski-tipp: remind tippers about races they haven't tipped
 
 [Service]
 Type=oneshot
