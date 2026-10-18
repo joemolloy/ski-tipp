@@ -67,17 +67,17 @@ uv run manage.py migrate
 
 ## Reminders
 
-`uv run manage.py notify_upcoming_races` reminds tippers about races in the next 24 hours, but only those with no tipp yet or with a podium pick who isn't on the start list. It sends an email, and an SMS too when the tipper has a mobile number. A tipper isn't reminded about the same race twice within 12 hours. Options: `--hours N`, `--min-gap-hours N`, `--dryrun`, `--resend`.
+`uv run manage.py notify_upcoming_races` emails members of the Tipp-Assist group about races in the next 24 hours, but only when they have no tipp yet or a podium pick who isn't on the start list. Each tipper gets at most one reminder per race. Options: `--hours N`, `--dryrun`, `--resend`.
 
-It sends nothing between 22:00 and 07:00. The server runs it every hour with `--hours 18` from a systemd timer, so for a 9:00 race a forgetful tipper gets one reminder at 15:00 the day before and another at 7:00 on race day.
-
-When FIS hasn't published a start time yet, races are imported at 9:00 local time, the earliest they start, and get their real time when the race is updated. To install the timer:
+The server runs it once a day at 8:00 Zurich time from a systemd timer, so it covers that day's races, which start at 9:00 at the earliest. To install the timer:
 
 ```
 sudo cp deploy/ski-tipp-reminders.service deploy/ski-tipp-reminders.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ski-tipp-reminders.timer
 ```
+
+When FIS hasn't published a start time yet, races are imported at 9:00 local time, the earliest they start, and get their real time when the race is updated.
 
 ## Auto-tipp
 

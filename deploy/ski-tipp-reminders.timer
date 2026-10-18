@@ -1,9 +1,8 @@
 [Unit]
-Description=Run ski-tipp reminders every hour
+Description=Run ski-tipp reminders at 8:00 Zurich time
 
 [Timer]
-OnCalendar=hourly
-Persistent=true
+OnCalendar=*-*-* 08:00:00 Europe/Zurich
 
 [Install]
 WantedBy=timers.target

@@ -3,31 +3,28 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.core.mail import send_mail
 from django.urls import reverse
-import boto3
 import logging
 
+from skitipp.context_processors import TIPP_ASSIST_GROUP
 from skitipp.models import SentReminder, RaceEvent, Tipp
 import datetime
 from django.utils import timezone
 
-QUIET_HOURS_START = 22
-QUIET_HOURS_END = 7
-
 
 class Command(BaseCommand):
-    help = "Remind tippers who haven't tipped an upcoming race, or tipped a racer who isn't starting"
+    help = "Email Tipp-Assist members who haven't tipped an upcoming race, or tipped a racer who isn't starting"
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--dryrun',
             action='store_true',
-            help="Don't send actual messages",
+            help="Don't send actual emails",
         )
 
         parser.add_argument(
             '--resend',
             action='store_true',
-            help="Send the reminder even if one was sent recently",
+            help="Send the reminder even if one was already sent for the race",
         )
 
         parser.add_argument(
@@ -36,20 +33,9 @@ class Command(BaseCommand):
             help="Remind about races starting in the next N hours",
         )
 
-        parser.add_argument(
-            '--min-gap-hours',
-            type=int, default=12,
-            help="Don't remind a tipper about the same race again within N hours",
-        )
-
 
     def handle(self, **options):
         now = timezone.now()
-
-        # nobody wants a tipp reminder at 3am; races start at 9:00 at the earliest, so 7:00 is still in time
-        if not QUIET_HOURS_END <= timezone.localtime(now).hour < QUIET_HOURS_START and not options['resend']:
-            logging.warning("Quiet hours, not sending reminders")
-            return
         upcoming_races = RaceEvent.objects.filter(
             cancelled=False,
             race_date__gt=now,
@@ -58,31 +44,19 @@ class Command(BaseCommand):
 
         logging.warning(f"Checking {upcoming_races.count()} races in the next {options['hours']} hours")
 
-        sms_client = None
-        if getattr(settings, 'AWS_ACCESS_KEY_ID', None):
-            sms_client = boto3.client(
-                "sns",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_SES_REGION_NAME,
-            )
-
         for race in upcoming_races:
             if race.season is None:
                 continue
-            for user in race.season.tippers.filter(is_active=True).select_related('tipper'):
+            tippers = race.season.tippers.filter(is_active=True, groups__name=TIPP_ASSIST_GROUP).select_related('tipper')
+            for user in tippers:
                 problem = tipp_problem(user, race)
                 if not problem:
                     continue
 
-                recently_reminded = SentReminder.objects.filter(
-                    tipper=user, race_event=race,
-                    sent_on__gt=now - datetime.timedelta(hours=options['min_gap_hours']),
-                ).exists()
-                if recently_reminded and not options['resend']:
+                if SentReminder.objects.filter(tipper=user, race_event=race).exists() and not options['resend']:
                     continue
 
-                send_reminder(sms_client, user, race, problem, options['dryrun'])
+                send_reminder(user, race, problem, options['dryrun'])
 
 
 def tipp_problem(user, race):
@@ -104,7 +78,7 @@ def tipp_problem(user, race):
     return None
 
 
-def send_reminder(sms_client, user, race, problem, dryrun):
+def send_reminder(user, race, problem, dryrun):
     race_date = timezone.localtime(race.race_date)
     tipp_url = settings.SITE_URL + reverse('create_tipp', kwargs={'race_id': race.pk})
 
@@ -119,17 +93,15 @@ def send_reminder(sms_client, user, race, problem, dryrun):
     if dryrun:
         return
 
-    if user.email:
-        send_mail(
-            subject=f"Ski-tipp: {race} {race.location}",
-            message=text,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=True,
-        )
+    if not user.email:
+        return
 
-    mobile = user.tipper.mobile_number if hasattr(user, 'tipper') else ''
-    if sms_client and mobile:
-        sms_client.publish(PhoneNumber=mobile, Message=text)
+    send_mail(
+        subject=f"Ski-tipp: {race} {race.location}",
+        message=text,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=True,
+    )
 
     SentReminder(tipper=user, race_event=race).save()
