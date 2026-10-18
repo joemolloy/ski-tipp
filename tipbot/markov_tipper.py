@@ -67,6 +67,14 @@ USE_AGE = True
 FIT_WINTERS = None        # experiments: fit the race model on only the last N winters
 RECENCY_HALF_LIFE = 4  # an older winter counts half as much every 4 winters (racing and seeding drift)
 ABLATE = set()  # experiments: feature names to zero out
+# Absence as "out": treating missed speed races, or long tech streaks, as no information
+# (injury rather than form) tested slightly worse; returning racers do start rusty.
+OUT_ONLY_TECH = False
+MAX_OUT_STREAK = None
+VENUE_DNF_PRIOR = 30  # starters' worth of the discipline's DNF rate mixed into a venue's
+USE_VENUE_DNF = True
+USE_ALL_IN_MODEL = True
+ALL_IN_PRIOR = 4  # races' worth of the discipline's all-finish rate mixed into a venue's
 WC_POINTS = [100, 80, 60, 50, 45, 40, 36, 32, 29, 26, 24, 22, 20, 18, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 # start groups, as in tipp_scorer.determine_start_group
@@ -348,6 +356,9 @@ class FormTracker:
         self.venue_points = {}    # (racer, disc, venue) -> decayed (results, World Cup points)
         self.scored = defaultdict(set)  # racer -> winters with World Cup points
         self.dnfs = {}            # (racer, disc) -> decayed (starts, DNFs)
+        self.absent_streak = defaultdict(int)  # (racer, disc) -> races missed in a row
+        self.course_all_in = defaultdict(lambda: [0.0, 0.0])  # (venue, disc) or disc -> decayed [races, all finished]
+        self.course_dnfs = defaultdict(lambda: [0.0, 0.0])  # (venue, disc) or disc -> decayed [starts, DNFs], bibs 1-30
 
     def predict(self, racer, disc, winter):
         key = (racer, disc)
@@ -402,6 +413,23 @@ class FormTracker:
             vn, vp = self.venue_points.get(key, (0.0, 0.0))
             self.venue_points[key] = (VENUE_DECAY * vn + 1, VENUE_DECAY * vp + won)
 
+    def all_in_features(self, race, p_independent):
+        n_all, k_all = self.course_all_in[race.disc]
+        avg = (k_all + 1) / (n_all + 4)
+        n, k = self.course_all_in[(race.venue, race.disc)]
+        venue = logit((k + ALL_IN_PRIOR * avg) / (n + ALL_IN_PRIOR)) - logit(avg)
+        return [1.0, logit(p_independent), venue, 1.0 if race.disc in ("SL", "DH") else 0.0]
+
+    def venue_dnf(self, race):
+        """How much more (or less) often the first 30 DNF on this course than in the discipline
+        overall, as a logit difference. Some hills are much harder to get down than others."""
+        if not USE_VENUE_DNF:
+            return 0.0
+        n_all, d_all = self.course_dnfs[race.disc]
+        avg = (d_all + 1) / (n_all + 5)
+        n, d = self.course_dnfs[(race.venue, race.disc)]
+        return logit((d + VENUE_DNF_PRIOR * avg) / (n + VENUE_DNF_PRIOR)) - logit(avg)
+
     def dnf_rate(self, racer, disc, emission):
         """The racer's own recent DNF rate in the discipline, shrunk towards the form prediction."""
         n, d = self.dnfs.get((racer, disc), (0.0, 0.0))
@@ -414,6 +442,16 @@ class FormTracker:
 
     def observe(self, race):
         self._observe_ratings(race)
+        top30 = [s for s in race.starters if s.bib <= 30]
+        if not race.championship:
+            for key in (race.disc, (race.venue, race.disc)):
+                c = self.course_all_in[key]
+                c[0] = DECAY * c[0] + 1
+                c[1] = DECAY * c[1] + (not any(s.dnf for s in top30))
+        for key in (race.disc, (race.venue, race.disc)):
+            c = self.course_dnfs[key]
+            c[0] = DECAY * c[0] + len(top30)
+            c[1] = DECAY * c[1] + sum(s.dnf for s in top30)
         if not race.championship:
             for s in race.starters:
                 if s.rank and not s.dnf and s.rank <= 30:
@@ -422,13 +460,8 @@ class FormTracker:
         for s in race.starters:
             self._observe(s.racer, race, outcome(s.rank, s.dnf))
             present.add(s.racer)
-        if race.championship:
-            return
-        # racers who have raced this discipline this winter but aren't in the results: "out"
-        seen = self.seen_this_winter[(race.disc, race.winter)]
-        for racer in seen - present:
+        for racer in absentees(race, self.seen_this_winter, present, self.absent_streak):
             self._observe(racer, race, OUT)
-        seen |= present
 
     def _observe(self, racer, race, obs):
         key = (racer, race.disc)
@@ -448,26 +481,44 @@ class FormTracker:
         return p_win, p_pod
 
 
+def absentees(race, seen, present, streak):
+    """Racers to count as "out" of a race they're missing from. Tech results leave out racers
+    who didn't make the second run, so a racer seen earlier this winter but missing probably
+    didn't qualify. But several misses in a row mean injury, not bad form, so only the first
+    MAX_OUT_STREAK count. Speed results list every finisher, so missing means didn't start.
+    Championships have nation quotas, so missing there means nothing. Updates seen and streak."""
+    for racer in present:
+        streak[(racer, race.disc)] = 0
+    if race.championship:
+        return []
+    out = []
+    key = (race.disc, race.winter)
+    if race.family == "tech" or not OUT_ONLY_TECH:
+        for racer in seen[key] - present:
+            streak[(racer, race.disc)] += 1
+            if not MAX_OUT_STREAK or streak[(racer, race.disc)] <= MAX_OUT_STREAK:
+                out.append(racer)
+    seen[key] |= present
+    return out
+
+
 def form_sequences(races):
     """Per (racer, discipline) observation sequences, matching FormTracker.observe."""
     seqs = defaultdict(lambda: ([], []))
     last_winter = {}
-    seen = defaultdict(set)
+    seen, streak = defaultdict(set), defaultdict(int)
     for race in races:
         present = {}
         for s in race.starters:
             present[s.racer] = outcome(s.rank, s.dnf)
-        if not race.championship:
-            for racer in seen[(race.disc, race.winter)] - set(present):
-                present[racer] = OUT
+        for racer in absentees(race, seen, set(present), streak):
+            present[racer] = OUT
         for racer, obs in present.items():
             key = (racer, race.disc)
             o, g = seqs[key]
             g.append(NEW_WINTER if key in last_winter and last_winter[key] != race.winter else 0)
             o.append(obs)
             last_winter[key] = race.winter
-        if not race.championship:
-            seen[(race.disc, race.winter)] |= set(present)
     by_disc = defaultdict(list)
     for (racer, disc), seq in seqs.items():
         by_disc[disc].append(seq)
@@ -598,19 +649,20 @@ def fit_logistic(X, ys, weights=None, ridge=1.0, iterations=15):
     return w
 
 
-def dnf_features(race, emission, bib, own_dnf_rate):
+def dnf_features(race, emission, bib, own_dnf_rate, venue_dnf=0.0):
     # DNF depends on form and the racer's own record, on the discipline (slalom more than GS)
     # and on the start group: late starters race on a rutted course
     groups = [0.0, 0.0, 0.0]
     g = start_group(race.family, bib, race.winter)
     if g > 1:
         groups[g - 2] = 1.0
-    return [1.0, logit(emission[DNF]), logit(own_dnf_rate), 1.0 if race.disc in ("SL", "DH") else 0.0] + groups
+    return [1.0, logit(emission[DNF]), logit(own_dnf_rate), 1.0 if race.disc in ("SL", "DH") else 0.0, venue_dnf] + groups
 
 
 class RaceModel:
-    def __init__(self, hmms, weights, dnf_calibration, late_podium_rate):
+    def __init__(self, hmms, weights, dnf_calibration, late_podium_rate, all_in=None):
         self.hmms = hmms
+        self.all_in = all_in or {}        # family -> logistic weights for "the first 30 all finish"
         self.weights = weights            # family -> PL weights
         self.dnf_calibration = dnf_calibration  # family -> logistic weights
         self.late_podium_rate = late_podium_rate  # family -> podium places per race won from bib 31+
@@ -621,12 +673,13 @@ class RaceModel:
             weights=self.weights,
             dnf_calibration=self.dnf_calibration,
             late_podium_rate=self.late_podium_rate,
+            all_in=self.all_in,
         )
 
     @classmethod
     def from_json(cls, d):
         return cls({k: FormHMM.from_json(v) for k, v in d["hmms"].items()}, d["weights"],
-                   d["dnf_calibration"], d["late_podium_rate"])
+                   d["dnf_calibration"], d["late_podium_rate"], d.get("all_in"))
 
     @classmethod
     def train(cls, races, log=print):
@@ -656,7 +709,7 @@ class RaceModel:
                 em = tracker.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
                 X.append(features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
                                   tracker.ratings(s.racer, race), s.bib, race.winter))
-                dnf_X[race.family].append((dnf_complete, dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))))
+                dnf_X[race.family].append((dnf_complete, dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em), tracker.venue_dnf(race))))
                 dnf_ys[race.family].append((dnf_complete, 1.0 if s.dnf else 0.0, weight))
             finishers = [i for i, s in enumerate(race.starters) if not s.dnf and s.rank]
             order = sorted(finishers, key=lambda i: race.starters[i].rank)
@@ -673,7 +726,26 @@ class RaceModel:
             wy = [k for c, _, k in dnf_ys[family] if c or use_all]
             calibration[family] = fit_logistic(X, y, wy)
         late_rate = {f: late_podiums[f] / max(family_races[f], 1) for f in family_races}
-        return cls(hmms, weights, calibration, late_rate)
+        model = cls(hmms, weights, calibration, late_rate)
+        if USE_ALL_IN_MODEL:
+            model.all_in = model.fit_all_in(races, last)
+        return model
+
+    def fit_all_in(self, races, last):
+        """Alle im Ziel as its own race-level model. Multiplying thirty finish chances together
+        compounds small errors (worse than a constant rate in speed), and some hills are far
+        kinder than others, so fit it on past races: does the first 30 all finish?"""
+        tracker = FormTracker(self.hmms)
+        X, y, wt = defaultdict(list), defaultdict(list), defaultdict(list)
+        for race in races:
+            weight = race_weight(race.winter, last)
+            if weight and any(s.bib > 30 and s.dnf for s in race.starters) or race.family == "speed":
+                odds = RaceOdds(race, self.starter_probabilities(tracker, race))
+                X[race.family].append(tracker.all_in_features(race, odds.p_all_in))
+                y[race.family].append(0.0 if any(s.dnf and s.bib <= 30 for s in race.starters) else 1.0)
+                wt[race.family].append(weight)
+            tracker.observe(race)
+        return {f: fit_logistic(X[f], y[f], wt[f]) for f in X if sum(y[f]) >= 3}
 
     def starter_probabilities(self, tracker, race):
         """Per starter: (PL strength, DNF probability, form emission)."""
@@ -685,7 +757,7 @@ class RaceModel:
             x = features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
                          tracker.ratings(s.racer, race), s.bib, race.winter)
             u = sum(a * b for a, b in zip(w, x))
-            x = dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))
+            x = dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em), tracker.venue_dnf(race))
             p_dnf = 1 / (1 + math.exp(-sum(a * b for a, b in zip(wd, x))))
             out.append((u, p_dnf, em))
         return out
@@ -711,7 +783,11 @@ class RaceModel:
             if boosts and s.racer in boosts:
                 u, p, em = probs[i]
                 probs[i] = (u + math.log(boosts[s.racer]), p, em)
-        return RaceOdds(race, probs)
+        odds = RaceOdds(race, probs)
+        if race.family in self.all_in:
+            x = tracker.all_in_features(race, odds.p_all_in)
+            odds.p_all_in = 1 / (1 + math.exp(-sum(a * b for a, b in zip(self.all_in[race.family], x))))
+        return odds
 
 
 class RaceOdds:

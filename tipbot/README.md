@@ -5,7 +5,7 @@ A small ski-tipp bot. Pure Python with no dependencies; the trained model is `mo
 ## How it works
 
 1. **Form, as a hidden Markov model.** Each racer has a hidden form state per discipline: dominant, podium, contender, solid or fringe. After each race the state moves by a transition matrix, and over the summer by a second one. Each result is an emission: win, 2-3, 4-10, 11-30, out (not in the results, e.g. no second run) or DNF. The parameters are shared per discipline and fitted with Baum-Welch. Each racer's belief is filtered forward race by race.
-2. **Race.** Each starter gets a Plackett-Luce strength fitted on past podiums. It combines the predicted form, form in the sister discipline (SL/GS, SG/DH), the racer's own decayed win and podium rate (which separates an Odermatt from the rest of the top group), an Elo-style online rating, decayed World Cup points, venue form (how the racer usually does at this hill compared with elsewhere), age, the start group, and for speed races the event's training runs (best rank, best gap to the fastest, skipped training). Podium chances follow exactly from those strengths. DNF chances come from the form model, the racer's own DNF rate, the discipline and the start group.
+2. **Race.** Each starter gets a Plackett-Luce strength fitted on past podiums. It combines the predicted form, form in the sister discipline (SL/GS, SG/DH), the racer's own decayed win and podium rate (which separates an Odermatt from the rest of the top group), an Elo-style online rating, decayed World Cup points, venue form (how the racer usually does at this hill compared with elsewhere), age, the start group, and for speed races the event's training runs (best rank, best gap to the fastest, skipped training). Podium chances follow exactly from those strengths. DNF chances come from the form model, the racer's own DNF rate, the discipline, how often the first 30 DNF on this course, and the start group. Alle im Ziel has its own race-level model, because multiplying thirty finish chances compounds small errors.
 3. **Tipp.** It picks the podium and DNF tipp with the highest *expected ski-tipp points*, using the scoring in `tipp_scorer.py`: start group multipliers, rank and podium bonuses, alle im Ziel. It only picks racers the tipp form offers, which is the World Cup standings: racers with WC points this winter or last. It skips the alleinsieger bonus, which depends on the other tippers.
 
 ## Backtest
@@ -14,13 +14,13 @@ A small ski-tipp bot. Pure Python with no dependencies; the trained model is `mo
 
 | winter | bot | average tipper | best tipper | bot would have finished |
 | --- | --- | --- | --- | --- |
-| 2019/20 | 2.06 | 2.33 | 2.96 | 13th of 16 |
+| 2019/20 | 2.00 | 2.33 | 2.96 | 14th of 16 |
 | 2020/21 | 2.21 | 2.12 | 2.70 | 6th of 16 |
-| 2021/22 | 2.36 | 2.02 | 2.38 | 2nd of 16 |
-| 2022/23 | 2.76 | 2.43 | 2.74 | 1st of 16 |
+| 2021/22 | 2.38 | 2.02 | 2.38 | 1st of 16 |
+| 2022/23 | 2.73 | 2.43 | 2.74 | 3rd of 16 |
 | 2023/24 | 2.73 | 2.51 | 3.01 | 4th of 16 |
 | 2024/25 | 2.80 | 1.90 | 2.28 | 1st of 17 |
-| 2025/26 | 2.46 | 2.10 | 2.62 | 3rd of 15 |
+| 2025/26 | 2.48 | 2.10 | 2.62 | 2nd of 15 |
 
 Each winter is scored under the rules of its time, which reproduce all 3,955 stored tallies exactly. Up to 2020/21, alle im Ziel and a right 2nd or 3rd place were worth 1 instead of 0.5. Up to 2021/22, the speed favourites were seeded onto odd bibs, which were the 1x group. The bot is weakest in those old-rules winters, where it also has the least training data.
 
@@ -61,6 +61,11 @@ All runs used the same five-winter backtest. Methods were compared on podium log
 | retuned ridge, decays, rating step | | all within ±0.04, kept as they were |
 | scoring and seeding by era (a fix) | | old-rules winters drop, e.g. 2019/20 to 13th |
 | recency weighting, half-life 4 winters | +0.03 ± 0.01 | +0.12 ± 0.07 |
+| random forest / neural net / ensembles as the learner | -0.20 / -1.44 / -0.04 | -0.17 / -0.75 / -0.11 (vs Plackett-Luce) |
+| missed races count as no information, not "out" (injury) | -0.02 | -0.03 ± 0.06 (kept "out") |
+| + venue DNF rate (DNF log-likelihood) | +0.07 ± 0.07 | -0.02 ± 0.01 |
+| + race-level alle im Ziel model | speed log-loss -0.575 → -0.516 | +0.02 ± 0.01 |
+| + venue-weighted SG/DH link (venue form and this weekend's sister race) | -0.01 ± 0.02 | -0.04 ± 0.04 (removed) |
 
 The Markov model and the simple ratings carry different information, and the combination beats either one. A nonlinear model doesn't help: with a few hundred races, the trees overfit and a linear model is about as good as it gets. More form states (3 to 6), fitting on the top 5 or top 10 places instead of the podium, and other decay rates were all within noise.
 
@@ -80,6 +85,13 @@ Analysed over the four current-rules winters, 2022/23–2025/26:
 How the best tippers differ: over these four winters the bot averages 2.69 per race and the best tipper (Donkunho) 2.57, but they win in different ways. Donkunho makes about 0.2 per race more on podium picks. He mostly goes with the crowd (62% of his picks are shared), differs from the bot's three favourites by about one pick per race, and scores 0.3 per race more than the bot's odds give his tipps credit for. The bot makes about 0.3 per race more on DNF picks. More multipliers isn't the answer: the tipper with the most 3x+ picks (36%) ranks near the bottom.
 
 So the best use for a person is a hybrid: their own podium tipp plus the bot's DNF pick. That adds 0.2–0.3 per race for every regular tipper, and would put the best one at 2.86.
+
+Two things that sound important turned out not to be:
+
+- **Strong racers on late bibs.** Every bib 31+ podium in ten winters came from a breakthrough racer with 0–1 previous podiums (Strolz, Cater, Pinheiro Braathen, McGrath). Racers with 3+ career podiums started from bib 31+ 205 times, mostly outside their usual discipline, and never made the podium. So scaling late starters down as a group does no harm.
+- **Course-specific SG/DH links.** They're real (SG/DH correlation 0.5 at Lake Louise and Kvitfjell, 0.32 at Beaver Creek), but the bot's per-discipline venue form, decayed points and training runs already cover it.
+
+Alle im Ziel does vary by course (in the first 30, everyone finished 4 of 6 Garmisch downhills but only 2 of 16 at Bormio). With about 90 speed races, though, a calibrated race-level model only matches the long-run 21% rate. It doesn't beat it.
 
 ### Tippers and big multipliers
 
