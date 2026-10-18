@@ -146,7 +146,8 @@ SMS_LENGTH = 160
 
 def sms_text(race, problem, suggestion):
     """The reminder SMS, kept to one 160 character message where the names allow it."""
-    when = timezone.localtime(race.race_date).strftime("%d.%m. %H:%M")
+    #it goes out on race morning, so the start time is enough
+    when = timezone.localtime(race.race_date).strftime("%H:%M")
     #a bare link, phones still make it clickable
     link = (settings.SITE_URL + reverse('tipp_assist' if suggestion else 'create_tipp',
                                         kwargs={} if suggestion else {'race_id': race.pk})).split("://")[-1]
