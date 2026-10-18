@@ -44,7 +44,7 @@
 <div class="card assist-card mb-3">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
         <div>
-            <strong>{{ card.race.short_name }}</strong> {{ card.race.kind }}, {{ card.race.location }}
+            {% if card.mine %}<i class="bi bi-check-circle-fill text-success" title="Tipped"></i> {% endif %}<strong>{{ card.race.short_name }}</strong> {{ card.race.kind }}, {{ card.race.location }}
             {% if card.race.is_classic %}<span class="badge badge-info">classic</span>{% endif %}
             {% if card.race.points_multiplier > 1 %}<span class="badge badge-warning">x{{ card.race.points_multiplier }} points</span>{% endif %}
         </div>
@@ -61,37 +61,39 @@
         <div class="row">
             <div class="col-md-5 mb-2">
                 <ul class="nav nav-tabs assist-tabs mb-2" role="tablist">
-                    {% for o in card.options %}
+                    {% for t in card.tabs %}
                     <li class="nav-item">
-                        <a class="nav-link {% if forloop.first %}active{% endif %}" data-toggle="tab" role="tab"
-                           href="#opt-{{ card.race.fis_id }}-{{ forloop.counter }}" aria-controls="opt-{{ card.race.fis_id }}-{{ forloop.counter }}"
-                           aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">{{ o.expected|floatformat:2 }} pts</a>
+                        <a class="nav-link {% if t.active %}active{% endif %}" data-toggle="tab" role="tab" href="#{{ t.id }}"
+                           aria-controls="{{ t.id }}" aria-selected="{% if t.active %}true{% else %}false{% endif %}">
+                            {% if t.label == "Yours" %}Yours · {% endif %}{{ t.expected|floatformat:2 }} pts
+                            {% if t.chosen %}<i class="bi bi-check-circle-fill" title="Your current tipp"></i>{% endif %}
+                        </a>
                     </li>
                     {% endfor %}
                 </ul>
                 <div class="tab-content">
-                    {% for o in card.options %}
-                    <div class="tab-pane {% if forloop.first %}show active{% endif %}" id="opt-{{ card.race.fis_id }}-{{ forloop.counter }}" role="tabpanel">
+                    {% for t in card.tabs %}
+                    <div class="tab-pane {% if t.active %}show active{% endif %}" id="{{ t.id }}" role="tabpanel">
                         <ol class="assist-tipp pl-3 mb-1">
-                            {% for p in o.podium %}
-                            <li>{{ p.name }} <span class="text-muted assist-mult">bib {{ p.bib }}, x{{ p.mult }}</span></li>
+                            {% for p in t.podium %}
+                            <li>{{ p.name }} <span class="text-muted assist-mult">{% if p.bib %}bib {{ p.bib }}, x{{ p.mult }}{% else %}not in the field{% endif %}</span></li>
                             {% endfor %}
                         </ol>
-                        <div class="mb-2">DNF: {{ card.dnf.name }} <span class="text-muted assist-mult">{% widthratio card.dnf.p 1 100 %}%</span></div>
-                        <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}" class="mb-2"
+                        <div class="mb-2">DNF: {{ t.dnf.name }} <span class="text-muted assist-mult">{% widthratio t.dnf.p 1 100 %}%</span></div>
+                        {% if t.chosen %}
+                        <div class="small text-success"><i class="bi bi-check-circle-fill"></i> Your current tipp{% if card.mine %}, saved {{ card.mine.created|localtime|date:"j M H:i" }}{% endif %}</div>
+                        {% else %}
+                        <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}"
                               onsubmit="return confirm('Submit this tipp as your tipp for {{ card.race.short_name|escapejs }}?');">
                             {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
-                            {% for p in o.podium %}<input type="hidden" name="place_{{ forloop.counter }}" value="{{ p.fis_id }}">{% endfor %}
-                            <input type="hidden" name="dnf" value="{{ card.dnf.fis_id }}">
+                            {% for p in t.podium %}<input type="hidden" name="place_{{ forloop.counter }}" value="{{ p.fis_id }}">{% endfor %}
+                            <input type="hidden" name="dnf" value="{{ t.dnf.fis_id }}">
                             <button type="submit" class="btn btn-primary btn-sm">Use this tipp</button>
                         </form>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
-                {% if card.mine %}
-                <div class="small text-muted">Your tipp: {{ card.mine.place_1 }}, {{ card.mine.place_2 }}, {{ card.mine.place_3 }}{% if card.mine.dnf %}; DNF {{ card.mine.dnf }}{% endif %}
-                    ({{ card.mine.created|localtime|date:"j M H:i" }})</div>
-                {% endif %}
             </div>
             <div class="col-md-7 table-responsive">
                 <table class="table table-sm table-striped mb-0">

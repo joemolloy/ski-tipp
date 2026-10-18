@@ -843,6 +843,22 @@ class RaceOdds:
         # podium bonus: 0.5 for exactly two right, 1 for three = 0.5 * sum of pairs - 0.5 * triple
         return e + 0.5 * (self.pair(a, b) + self.pair(a, c) + self.pair(b, c)) - 0.5 * self.triple(a, b, c)
 
+    def tipp_value(self, podium, dnf):
+        """Expected points of any tipp: racers as FIS codes, dnf None for alle im Ziel. A racer
+        who isn't in the field (not starting, or missing from a guessed start list) scores nothing."""
+        index = {s.racer: i for i, s in enumerate(self.race.starters)}
+        picks = [index.get(r) for r in podium]
+        e = sum(self.mult[i] * self.p_podium[i] for i in picks if i is not None)
+        for pos, i in enumerate(picks):
+            if i is not None:
+                e += self.p_rank[i][pos] * (1 if pos == 0 else self.place_bonus)
+        present = [i for i in picks if i is not None]
+        pairs = sum(self.pair(a, b) for k, a in enumerate(present) for b in present[k + 1:])
+        e += 0.5 * pairs - (0.5 * self.triple(*present) if len(present) == 3 else 0)
+        if dnf is None:
+            return e + self.all_in_points * self.p_all_in
+        return e + (self.p_dnf[index[dnf]] if dnf in index else 0.0)
+
     def choices(self):
         """Starters a tipper can pick: the app only offers racers in the World Cup standings."""
         allowed = [i for i in range(len(self.mult)) if self.eligible is None or self.eligible[i]]
@@ -1020,12 +1036,15 @@ def load_model(args, races):
     return RaceModel.train(races, log=lambda m: print(m, file=sys.stderr))
 
 
-def tipps_for(upcoming, db_path, extra=(), model_path=DEFAULT_MODEL, exclude=(), eligible=None, trainings=None, now=None):
+def tipps_for(upcoming, db_path, extra=(), model_path=DEFAULT_MODEL, exclude=(), eligible=None, trainings=None, now=None,
+              current=None):
     """Tipp upcoming races, for the app's tipbot page.
 
     upcoming: dicts with fis_id, kind, date, name, location and starters ([(racer, bib)], empty
     when the start list isn't out). exclude: racers not starting. eligible: racers the tipp form
-    offers. trainings: fis_id -> [(date, racer, rank, gap, dnf)] training runs.
+    offers. trainings: fis_id -> [(date, racer, rank, gap, dnf)] training runs. current: fis_id ->
+    (podium, dnf) of the user's tipp, dnf None for alle im Ziel; it gets its expected points and
+    the index of the matching option, if any.
     Returns one dict per race, and the racer names."""
     races, names, _ = load_history(db_path, extra)
     with open(model_path) as f:
@@ -1047,8 +1066,13 @@ def tipps_for(upcoming, db_path, extra=(), model_path=DEFAULT_MODEL, exclude=(),
         order = sorted(range(len(race.starters)), key=lambda i: -odds.p_podium[i])
         dnf_points = exp - odds.best_podiums(1)[0][1]
         options = [dict(podium=[race.starters[i].racer for i in t], expected=e + dnf_points) for t, e in odds.best_podiums(3)]
+        mine = (current or {}).get(race.fis_id)
+        if mine:
+            mine_podium, mine_dnf = list(mine[0]), mine[1]
+            match = next((k for k, o in enumerate(options) if o["podium"] == mine_podium and mine_dnf == dnf), None)
+            mine = dict(podium=mine_podium, dnf=mine_dnf, expected=odds.tipp_value(mine_podium, mine_dnf), option=match)
         out.append(dict(
-            fis_id=race.fis_id, podium=podium, dnf=dnf, expected=exp, options=options, guessed_bibs=not listed,
+            fis_id=race.fis_id, podium=podium, dnf=dnf, expected=exp, options=options, current=mine, guessed_bibs=not listed,
             training_runs=len({d for d, *_ in runs}) if runs else 0,
             contenders=[dict(racer=race.starters[i].racer, bib=race.starters[i].bib, mult=odds.mult[i],
                              p_win=odds.p_rank[i][0], p_podium=odds.p_podium[i], p_dnf=odds.p_dnf[i]) for i in order[:12]],

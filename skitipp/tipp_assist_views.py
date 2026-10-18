@@ -78,11 +78,14 @@ def tipp_assist_page(request):
     upcoming = [dict(fis_id=r.fis_id, kind=r.kind, date=naive_utc(r.race_date), name=r.short_name, location=r.location,
                      starters=list(r.start_list.values_list("racer_id", "start_number")))
                 for r in races]
+    # the user's latest tipp per race; dnf 0 in the app means alle im Ziel
+    mine = {r.fis_id: r.tipps.filter(tipper=request.user).order_by("-created").first() for r in races}
+    current = {fid: ([t.place_1_id, t.place_2_id, t.place_3_id], t.dnf_id or None) for fid, t in mine.items() if t}
     eligible = set(Racer.objects.competitors().values_list("fis_id", flat=True))
     trainings = {int(k): v for k, v in state.get("training", {}).items()}
     results, names = markov_tipper.tipps_for(
         upcoming, settings.DATABASES["default"]["NAME"], [EXTRA], exclude=state.get("not_starting", []),
-        eligible=eligible, trainings=trainings, now=naive_utc(timezone.now()))
+        eligible=eligible, trainings=trainings, now=naive_utc(timezone.now()), current=current)
     by_id = {r["fis_id"]: r for r in results}
     racer_names = {**names, **dict(Racer.objects.values_list("fis_id", "name"))}
     label = lambda fis_id: (racer_names.get(fis_id) or str(fis_id)).split("\n")[0]
@@ -92,25 +95,34 @@ def tipp_assist_page(request):
         res = by_id.get(race.fis_id)
         if not res:
             continue
-        mine = (race.tipps.filter(tipper=request.user).order_by("-created").first())
+        podium = lambda racers: [dict(fis_id=r, name=label(r), bib=res["bib"].get(r), mult=res["mult"].get(r)) for r in racers]
+        dnf = lambda r: dict(fis_id=r or 0, name=label(r) if r else "Alle im Ziel",
+                             p=res["p_dnf"].get(r, 0.0) if r else res["p_all_in"])
+        cur = res.get("current")
+        # tabs: the user's own tipp first if it isn't one of the suggestions, then the suggestions
+        tabs = [dict(label="Yours", expected=o["expected"], podium=podium(o["podium"]), dnf=dnf(res["dnf"]),
+                     chosen=bool(cur) and cur["option"] == k) for k, o in enumerate(res["options"])]
+        for k, t in enumerate(tabs):
+            t["label"] = "Best" if k == 0 else f"#{k + 1}"
+        if cur and cur["option"] is None:
+            tabs.insert(0, dict(label="Yours", expected=cur["expected"], podium=podium(cur["podium"]), dnf=dnf(cur["dnf"]),
+                                chosen=True))
+        active = next((k for k, t in enumerate(tabs) if t["chosen"]), 0)
+        for k, t in enumerate(tabs):
+            t["active"] = k == active
+            t["id"] = f"opt-{race.fis_id}-{k}"
         cards.append(dict(
-            race=race,
-            podium=[dict(fis_id=r, name=label(r), bib=res["bib"].get(r), mult=res["mult"].get(r)) for r in res["podium"]],
-            options=[dict(expected=o["expected"],
-                          podium=[dict(fis_id=r, name=label(r), bib=res["bib"].get(r), mult=res["mult"].get(r)) for r in o["podium"]])
-                     for o in res["options"]],
-            dnf=dict(fis_id=res["dnf"] or 0, name=label(res["dnf"]) if res["dnf"] else "Alle im Ziel",
-                     p=res["p_dnf"].get(res["dnf"]) if res["dnf"] else res["p_all_in"]),
-            expected=res["expected"], guessed_bibs=res["guessed_bibs"], training_runs=res["training_runs"],
+            race=race, tabs=tabs, mine=mine.get(race.fis_id),
+            guessed_bibs=res["guessed_bibs"], training_runs=res["training_runs"],
             contenders=[dict(c, name=label(c["racer"])) for c in res["contenders"]],
-            mine=mine, is_speed=race.is_speed_event,
+            is_speed=race.is_speed_event,
             # races without a published start time are stored at local midnight
             time_known=timezone.localtime(race.race_date).strftime("%H:%M") != "00:00",
         ))
     form = NotStartingForm(initial={"racers": Racer.objects.filter(fis_id__in=state.get("not_starting", []))})
     return render(request, "tipp_assist.html", dict(cards=cards, form=form, n=n,
-                                               training_fetched=state.get("training_fetched", {}),
-                                               selected_season=Season.objects.order_by("-current", "-start_date").first()))
+                                                    training_fetched=state.get("training_fetched", {}),
+                                                    selected_season=Season.objects.order_by("-current", "-start_date").first()))
 
 
 @tipp_assist_only
