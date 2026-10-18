@@ -35,7 +35,7 @@ from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Se
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
 
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 
 
 from skitipp import tipp_scorer
@@ -559,9 +559,12 @@ def deletePointAdjustment(request, season_id, adjustment_id):
 @login_required
 def profile(request):
     tipper, _ = Tipper.objects.get_or_create(user=request.user, defaults={'mobile_number': ''})
+    old_email = request.user.email
     form = ProfileForm(request.POST or None, instance=request.user, tipper=tipper)
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        user = form.save()
+        if old_email and user.email != old_email:
+            email_old_address(user, old_email)
         messages.success(request, "Profile saved.")
         return redirect('profile')
 
@@ -569,6 +572,26 @@ def profile(request):
         form=form,
         selected_season=Season.objects.order_by('-current', '-start_date').first(),
     ))
+
+def email_old_address(user, old_email):
+    """Tell the previous address its email was changed, so a takeover doesn't go unnoticed."""
+    new_email = user.email or 'keine Adresse'
+    EmailMessage(
+        subject='Deine E-Mail-Adresse auf Ski-tipp.org wurde geändert',
+        body=inspect.cleandoc(
+            f'''Hallo {user.username}
+
+            Die E-Mail-Adresse deines Kontos auf ski-tipp.org wurde von {old_email} auf {new_email} geändert.
+
+            Falls du das nicht warst, melde dich bitte sofort bei uns, indem du auf diese E-Mail antwortest.
+
+            Ski-tipp.org
+            '''
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[old_email],
+        reply_to=admin_emails(),
+    ).send(fail_silently=True)
 
 class AboutView(TemplateView):
     template_name = "about.html"
@@ -647,17 +670,21 @@ def register(request):
                   template_name = "registration/sign_up.html",
                   context={"form":form})
 
+def admin_emails():
+    """The Season Admins' addresses, or the superusers' if there are no Season Admins."""
+    with_email = User.objects.filter(is_active=True).exclude(email='')
+    emails = list(with_email.filter(groups__name='Season Admin').values_list('email', flat=True).distinct())
+    if not emails:
+        emails = list(with_email.filter(is_superuser=True).values_list('email', flat=True).distinct())
+    return emails
+
 def email_admin_about_registration(request, user):
         from django.core.mail import send_mail
         from django.urls import reverse
 
         approval_link = request.build_absolute_uri(reverse('activate_user', kwargs=dict(username=user.username)))
 
-        # Season Admins approve registrations; if there are none, the superusers do
-        with_email = User.objects.filter(is_active=True).exclude(email='')
-        approver_emails = list(with_email.filter(groups__name='Season Admin').values_list('email', flat=True).distinct())
-        if not approver_emails:
-            approver_emails = list(with_email.filter(is_superuser=True).values_list('email', flat=True).distinct())
+        approver_emails = admin_emails()
 
         print('Approver emails:', approver_emails)
 

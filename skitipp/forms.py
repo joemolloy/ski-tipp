@@ -151,6 +151,12 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
     reminders = forms.BooleanField(
         required=False, label="Race-morning reminders",
         help_text="On the morning of a race, an email if you haven't tipped yet or tipped someone who isn't starting.")
+    current_password = forms.CharField(
+        required=False, label="Current password", strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+        help_text="Only needed to change your email.")
+
+    field_order = ["username", "first_name", "last_name", "email", "current_password", "reminders"]
 
     class Meta:
         model = User
@@ -177,6 +183,13 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
         if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
             raise ValidationError("Another tipper already has this username.")
         return username
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # password resets go to this address, so someone in a hijacked session mustn't be able to point it elsewhere
+        if "email" in self.changed_data and not self.instance.check_password(cleaned_data.get("current_password", "")):
+            self.add_error("current_password", "Enter your current password to change your email.")
+        return cleaned_data
 
     def save(self, commit=True):
         user = super().save(commit)
