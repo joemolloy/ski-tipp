@@ -14,17 +14,19 @@ A small ski-tipp bot. Pure Python with no dependencies; the trained model is `mo
 
 | winter | bot | average tipper | best tipper | bot would have finished |
 | --- | --- | --- | --- | --- |
-| 2019/20 | 2.47 | 2.33 | 2.96 | 7th of 16 |
-| 2020/21 | 2.59 | 2.12 | 2.70 | 2nd of 16 |
-| 2021/22 | 2.85 | 2.02 | 2.38 | 1st of 16 |
-| 2022/23 | 2.75 | 2.43 | 2.74 | 1st of 16 |
+| 2019/20 | 2.06 | 2.33 | 2.96 | 13th of 16 |
+| 2020/21 | 2.21 | 2.12 | 2.70 | 6th of 16 |
+| 2021/22 | 2.36 | 2.02 | 2.38 | 2nd of 16 |
+| 2022/23 | 2.76 | 2.43 | 2.74 | 1st of 16 |
 | 2023/24 | 2.73 | 2.51 | 3.01 | 4th of 16 |
-| 2024/25 | 2.70 | 1.90 | 2.28 | 1st of 17 |
-| 2025/26 | 2.29 | 2.10 | 2.62 | 4th of 15 |
+| 2024/25 | 2.80 | 1.90 | 2.28 | 1st of 17 |
+| 2025/26 | 2.46 | 2.10 | 2.62 | 3rd of 15 |
 
-`backtest --scheme loo` leaves one winter out and trains on all the others, including later ones. That gives every fold more data. The shared parameters have then seen the future, but racer form is still filtered in date order. It agrees with the rolling scheme: 3rd, 2nd, 1st, 1st, 2nd, 1st, 4th.
+Each winter is scored under the rules of its time, which reproduce all 3,955 stored tallies exactly. Up to 2020/21, alle im Ziel and a right 2nd or 3rd place were worth 1 instead of 0.5. Up to 2021/22, the speed favourites were seeded onto odd bibs, which were the 1x group. The bot is weakest in those old-rules winters, where it also has the least training data.
 
-Early in a winter the bot does at least as well as later. Its edge over the average tipper is largest in each discipline's first two races, because the summer transition and last season's ratings carry over. The real cold start was where the data began: before the 2016/17–2018/19 warm-up seasons were added, the bot came last in 2019/20.
+`backtest --scheme loo` leaves one winter out and trains on all the others, including later ones. That gives every fold more data. The shared parameters have then seen the future, but racer form is still filtered in date order. From 2019/20 it places 7th, 10th, 1st, 6th, 3rd, 1st, 3rd.
+
+Early in a winter the bot does at least as well as later. Its edge over the average tipper is largest in each discipline's first two races, because the summer transition and last season's ratings carry over. The real cold start is where the data begins, which is why the 2016/17–2018/19 warm-up seasons were added. They lift 2019/20 by several places.
 
 World champs and Olympics count towards their winter, but nation quotas keep regulars out, so absence there isn't read as "out". They're the bot's weak spot: over 20 championship races it scores about the same as the average tipper (2.0–2.1), and the backtest prints this separately.
 
@@ -57,12 +59,27 @@ All runs used the same five-winter backtest. Methods were compared on podium log
 | + home race | -0.00 | -0.04 ± 0.02 (dropped) |
 | + age | +0.02 ± 0.02 | +0.07 ± 0.05 |
 | retuned ridge, decays, rating step | | all within ±0.04, kept as they were |
+| scoring and seeding by era (a fix) | | old-rules winters drop, e.g. 2019/20 to 13th |
+| recency weighting, half-life 4 winters | +0.03 ± 0.01 | +0.12 ± 0.07 |
 
 The Markov model and the simple ratings carry different information, and the combination beats either one. A nonlinear model doesn't help: with a few hundred races, the trees overfit and a linear model is about as good as it gets. More form states (3 to 6), fitting on the top 5 or top 10 places instead of the podium, and other decay rates were all within noise.
 
 The biggest single source of the bot's edge is the DNF pick. In tech races it earns about 0.6 points per race against 0.27 for the average tipper, by picking late-starting racers who are in the standings but DNF often. Tippers mostly pick DNFs from the first 30 bibs.
 
 Training runs matter most for newcomers. In 2025/26 the tippers beat the bot clearly in downhill (2.94 vs 2.10 per race), mostly through Franzoni: 3rd from bib 28 in Wengen, then a win in Kitzbühel. He'd been fastest in Kitzbühel training. With training runs, 2025/26 went from 9th to 4th.
+
+### What limits the bot
+
+Analysed over the four current-rules winters, 2022/23–2025/26:
+
+- **Model choice isn't the limit.** Gradient-boosted trees and logistic regression on the same features do no better than Plackett-Luce.
+- **Data quantity isn't either.** Fitting the race model on only the last 3–6 winters is as good as using all ten. Older winters mislead a little, because racing and the FIS seeding drift. Weighting recent winters more (an older winter counts half as much every 4 winters) improves podium and DNF forecasts and adds about +0.12 points per race. The DNF model is the exception and needs several winters.
+- **Features carry most of the gain.** In order of what removing them costs: training runs, age, decayed WC points, the Markov form, venue form. The Elo rating, own record, sister discipline and start groups add nothing on top.
+- **The rules are mostly exploited.** Expected-points tipping is worth +0.17 per race over picking the favourites. What's left is the alleinsieger bonus, which needs the other tipps.
+
+How the best tippers differ: over these four winters the bot averages 2.69 per race and the best tipper (Donkunho) 2.57, but they win in different ways. Donkunho makes about 0.2 per race more on podium picks. He mostly goes with the crowd (62% of his picks are shared), differs from the bot's three favourites by about one pick per race, and scores 0.3 per race more than the bot's odds give his tipps credit for. The bot makes about 0.3 per race more on DNF picks. More multipliers isn't the answer: the tipper with the most 3x+ picks (36%) ranks near the bottom.
+
+So the best use for a person is a hybrid: their own podium tipp plus the bot's DNF pick. That adds 0.2–0.3 per race for every regular tipper, and would put the best one at 2.86.
 
 ### Tippers and big multipliers
 

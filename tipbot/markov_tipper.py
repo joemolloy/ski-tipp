@@ -64,13 +64,30 @@ RATING_NEW = -1.0
 RATING_DEPTH = 10  # finishing places each rating update looks at
 USE_TRAINING = True
 USE_AGE = True
+FIT_WINTERS = None        # experiments: fit the race model on only the last N winters
+RECENCY_HALF_LIFE = 4  # an older winter counts half as much every 4 winters (racing and seeding drift)
+ABLATE = set()  # experiments: feature names to zero out
 WC_POINTS = [100, 80, 60, 50, 45, 40, 36, 32, 29, 26, 24, 22, 20, 18, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 # start groups, as in tipp_scorer.determine_start_group
 GROUP_MULTIPLIER = [0, 1, 3, 6, 12]
+# The rules changed twice; the stored tallies match these eras exactly:
+# up to 2020/21 alle im Ziel and a right 2nd or 3rd place scored 1 (now 0.5), and up to
+# 2021/22 FIS seeded the speed favourites onto odd bibs, so odd bibs to 19 were the 1x group.
+OLD_BONUS_UNTIL = 2020
+OLD_SPEED_GROUPS_UNTIL = 2021
 
 
-def start_group(family, bib):
+def rules(winter):
+    """(points for a right 2nd or 3rd place, points for alle im Ziel) in that winter."""
+    return (1.0, 1.0) if winter is not None and winter <= OLD_BONUS_UNTIL else (0.5, 0.5)
+
+
+def start_group(family, bib, winter=None):
+    if family == "speed" and winter is not None and winter <= OLD_SPEED_GROUPS_UNTIL:
+        if bib <= 20:
+            return 1 if bib % 2 else 2
+        return 3 if bib <= 30 else 4
     if family == "tech":
         if bib <= 7:
             return 1
@@ -84,8 +101,8 @@ def start_group(family, bib):
     return 3 if bib <= 30 else 4
 
 
-def multiplier(family, bib):
-    return GROUP_MULTIPLIER[start_group(family, bib)]
+def multiplier(family, bib, winter=None):
+    return GROUP_MULTIPLIER[start_group(family, bib, winter)]
 
 
 def outcome(rank, is_dnf):
@@ -464,19 +481,20 @@ def logit(p):
     return math.log(p / (1 - p))
 
 
-def features(family, emission, sibling, record, ratings, bib):
+def features(family, emission, sibling, record, ratings, bib, winter=None):
     """Plackett-Luce features for one starter. Start groups are one-hot, group 1 is the baseline."""
     p_win = emission[WIN]
     p_pod = p_win + emission[PODIUM]
     p_top10 = p_pod + emission[TOP10]
     p_top30 = p_top10 + emission[TOP30]
     groups = [0.0, 0.0, 0.0]
-    g = start_group(family, bib)
+    g = start_group(family, bib, winter)
     if g > 1:
         groups[g - 2] = 1.0
     sib = math.log(sibling[WIN] + sibling[PODIUM] + sibling[TOP10] + 1e-3)
     own = [math.log(record[0] + 1e-4), math.log(record[1] + 1e-4)]
-    return [math.log(p_win + 1e-4), math.log(p_pod + 1e-4), math.log(p_top10 + 1e-3), math.log(p_top30 + 1e-3), sib] + own + ratings + groups
+    x = [math.log(p_win + 1e-4), math.log(p_pod + 1e-4), math.log(p_top10 + 1e-3), math.log(p_top30 + 1e-3), sib] + own + ratings + groups
+    return [0.0 if ABLATE and FEATURE_NAMES[i] in ABLATE else v for i, v in enumerate(x)]
 
 
 BORN = {}  # racer -> birth year, from tipbot/data/fis.sqlite3
@@ -520,22 +538,23 @@ def solve(H, g):
 
 
 def fit_plackett_luce(samples, n_features, top=5, ridge=1.0, iterations=12):
-    """samples: list of (X, order) with X the finishers' features and order their finishing order."""
+    """samples: list of (X, order, weight) with X the starters' features, order the finishing order
+    and weight how much the race counts."""
     w = [0.0] * n_features
     w[0] = 1.0
     for _ in range(iterations):
         grad = [-ridge * x for x in w]
         H = [[ridge if i == j else 0.0 for j in range(n_features)] for i in range(n_features)]
-        for X, order in samples:
-            ex = [math.exp(sum(a * b for a, b in zip(w, x))) for x in X]
+        for X, order, weight in samples:
+            ex = [math.exp(min(sum(a * b for a, b in zip(w, x)), 50.0)) for x in X]
             remaining = set(range(len(X)))
             for k in order[:top]:
                 total = sum(ex[j] for j in remaining)
                 mean = [sum(ex[j] * X[j][f] for j in remaining) / total for f in range(n_features)]
                 for f in range(n_features):
-                    grad[f] += X[k][f] - mean[f]
+                    grad[f] += weight * (X[k][f] - mean[f])
                 for j in remaining:
-                    pj = ex[j] / total
+                    pj = weight * ex[j] / total
                     d = [X[j][f] - mean[f] for f in range(n_features)]
                     for a in range(n_features):
                         da = pj * d[a]
@@ -550,18 +569,26 @@ def fit_plackett_luce(samples, n_features, top=5, ridge=1.0, iterations=12):
     return w
 
 
-def fit_logistic(X, ys, ridge=1.0, iterations=15):
+def race_weight(winter, last):
+    """How much a past race counts when fitting the race and DNF models (the form model always
+    sees everything). FIT_WINTERS keeps only the latest winters; RECENCY_HALF_LIFE fades older ones."""
+    if FIT_WINTERS and winter <= last - FIT_WINTERS:
+        return 0.0
+    return 0.5 ** ((last - winter) / RECENCY_HALF_LIFE) if RECENCY_HALF_LIFE else 1.0
+
+
+def fit_logistic(X, ys, weights=None, ridge=1.0, iterations=15):
     """Logistic regression by Newton's method, for DNF calibration."""
     n = len(X[0])
     w = [0.0] * n
     for _ in range(iterations):
         grad = [-ridge * a for a in w]
         H = [[ridge if i == j else 0.0 for j in range(n)] for i in range(n)]
-        for x, y in zip(X, ys):
+        for x, y, c in zip(X, ys, weights or [1.0] * len(ys)):
             p = 1 / (1 + math.exp(-sum(a * b for a, b in zip(w, x))))
-            v = p * (1 - p)
+            v = c * p * (1 - p)
             for i in range(n):
-                grad[i] += (y - p) * x[i]
+                grad[i] += c * (y - p) * x[i]
                 for j in range(n):
                     H[i][j] += v * x[i] * x[j]
         step = solve(H, grad)
@@ -575,7 +602,7 @@ def dnf_features(race, emission, bib, own_dnf_rate):
     # DNF depends on form and the racer's own record, on the discipline (slalom more than GS)
     # and on the start group: late starters race on a rutted course
     groups = [0.0, 0.0, 0.0]
-    g = start_group(race.family, bib)
+    g = start_group(race.family, bib, race.winter)
     if g > 1:
         groups[g - 2] = 1.0
     return [1.0, logit(emission[DNF]), logit(own_dnf_rate), 1.0 if race.disc in ("SL", "DH") else 0.0] + groups
@@ -613,7 +640,12 @@ class RaceModel:
         pl_samples = defaultdict(list)
         dnf_X, dnf_ys = defaultdict(list), defaultdict(list)
         late_podiums, family_races = defaultdict(int), defaultdict(int)
+        last = max(r.winter for r in races)
         for race in races:
+            weight = race_weight(race.winter, last)
+            if not weight:
+                tracker.observe(race)
+                continue
             family_races[race.family] += 1
             late_podiums[race.family] += sum(1 for s in race.starters if s.bib > 30 and not s.dnf and s.rank and s.rank <= 3)
             # older databases only kept DNFs from bib 30 and better, which would skew the DNF model
@@ -623,12 +655,12 @@ class RaceModel:
             for s in race.starters:
                 em = tracker.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
                 X.append(features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
-                                  tracker.ratings(s.racer, race), s.bib))
+                                  tracker.ratings(s.racer, race), s.bib, race.winter))
                 dnf_X[race.family].append((dnf_complete, dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))))
-                dnf_ys[race.family].append((dnf_complete, 1.0 if s.dnf else 0.0))
+                dnf_ys[race.family].append((dnf_complete, 1.0 if s.dnf else 0.0, weight))
             finishers = [i for i, s in enumerate(race.starters) if not s.dnf and s.rank]
             order = sorted(finishers, key=lambda i: race.starters[i].rank)
-            pl_samples[race.family].append((X, order))
+            pl_samples[race.family].append((X, order, weight))
             tracker.observe(race)
 
         weights, calibration = {}, {}
@@ -637,8 +669,9 @@ class RaceModel:
             weights[family] = fit_plackett_luce(pl_samples[family], len(FEATURE_NAMES), top=PL_TOP, ridge=RIDGE)
             use_all = not any(c for c, _ in dnf_X[family])  # no complete records: take what there is
             X = [x for c, x in dnf_X[family] if c or use_all]
-            y = [v for c, v in dnf_ys[family] if c or use_all]
-            calibration[family] = fit_logistic(X, y)
+            y = [v for c, v, _ in dnf_ys[family] if c or use_all]
+            wy = [k for c, _, k in dnf_ys[family] if c or use_all]
+            calibration[family] = fit_logistic(X, y, wy)
         late_rate = {f: late_podiums[f] / max(family_races[f], 1) for f in family_races}
         return cls(hmms, weights, calibration, late_rate)
 
@@ -650,7 +683,7 @@ class RaceModel:
         for s in race.starters:
             em = self.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
             x = features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
-                         tracker.ratings(s.racer, race), s.bib)
+                         tracker.ratings(s.racer, race), s.bib, race.winter)
             u = sum(a * b for a, b in zip(w, x))
             x = dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))
             p_dnf = 1 / (1 + math.exp(-sum(a * b for a, b in zip(wd, x))))
@@ -709,7 +742,8 @@ class RaceOdds:
         for st, p in zip(race.starters, self.p_dnf):
             if st.bib <= 30:
                 self.p_all_in *= 1 - p
-        self.mult = [multiplier(race.family, st.bib) for st in race.starters]
+        self.mult = [multiplier(race.family, st.bib, race.winter) for st in race.starters]
+        self.place_bonus, self.all_in_points = rules(race.winter)
         self.eligible = None
         self._pairs = {}
 
@@ -729,7 +763,7 @@ class RaceOdds:
 
     def expected_points(self, a, b, c):
         e = sum(self.mult[i] * self.p_podium[i] for i in (a, b, c))
-        e += self.p_rank[a][0] + 0.5 * self.p_rank[b][1] + 0.5 * self.p_rank[c][2]
+        e += self.p_rank[a][0] + self.place_bonus * (self.p_rank[b][1] + self.p_rank[c][2])
         # podium bonus: 0.5 for exactly two right, 1 for three = 0.5 * sum of pairs - 0.5 * triple
         return e + 0.5 * (self.pair(a, b) + self.pair(a, c) + self.pair(b, c)) - 0.5 * self.triple(a, b, c)
 
@@ -755,26 +789,27 @@ class RaceOdds:
     def best_dnf(self):
         """(starter index or None for alle im Ziel, expected DNF points)."""
         i = max(self.choices(), key=lambda i: self.p_dnf[i])
-        if 0.5 * self.p_all_in > self.p_dnf[i]:
-            return None, 0.5 * self.p_all_in
+        if self.all_in_points * self.p_all_in > self.p_dnf[i]:
+            return None, self.all_in_points * self.p_all_in
         return i, self.p_dnf[i]
 
 
 def score(race, podium_racers, dnf_racer):
     """Ski-tipp points (standard + bonus, before multiplier and alleinsieger) of a tipp."""
     result = {s.racer: s for s in race.starters}
+    place_bonus, all_in_points = rules(race.winter)
     pts, on, rank_bonus = 0.0, 0, 0.0
     for pos, racer in enumerate(podium_racers, 1):
         s = result.get(racer)
         if s and not s.dnf and s.rank and s.rank <= 3:
-            pts += multiplier(race.family, s.bib)
+            pts += multiplier(race.family, s.bib, race.winter)
             on += 1
             if s.rank == pos:
-                rank_bonus += 1 if pos == 1 else 0.5
+                rank_bonus += 1 if pos == 1 else place_bonus
     pts += rank_bonus + {2: 0.5, 3: 1}.get(on, 0)
     if dnf_racer is None:
         if not any(s.dnf and s.bib <= 30 for s in race.starters):
-            pts += 0.5
+            pts += all_in_points
     elif result.get(dnf_racer) and result[dnf_racer].dnf:
         pts += 1
     return pts
