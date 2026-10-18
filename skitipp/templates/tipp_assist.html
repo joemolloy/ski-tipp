@@ -81,7 +81,7 @@
                         </ol>
                         <div class="mb-2">DNF: {{ t.dnf.name }} <span class="text-muted assist-mult">{% widthratio t.dnf.p 1 100 %}%</span></div>
                         {% if t.chosen %}
-                        <div class="small text-success"><i class="bi bi-check-circle-fill"></i> Your current tipp{% if card.mine %}, saved {{ card.mine.created|localtime|date:"j M H:i" }}{% endif %}</div>
+                        {% if card.mine %}<div class="small text-muted">Saved {{ card.mine.created|localtime|date:"j M H:i" }}</div>{% endif %}
                         {% else %}
                         <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}"
                               onsubmit="return confirm('Submit this tipp as your tipp for {{ card.race.short_name|escapejs }}?');">
