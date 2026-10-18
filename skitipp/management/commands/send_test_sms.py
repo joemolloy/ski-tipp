@@ -6,8 +6,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib.auth.models import User
 
 from skitipp.models import RaceEvent
+from tipbot import markov_tipper
 from skitipp.management.commands.notify_upcoming_races import (
-    assist_for, better_tipp, sms_parts, sms_text, tipp_problem)
+    better_tipp, sms_parts, sms_text, tipp_problem)
+from skitipp.tipp_assist_views import assist_tipps
 
 
 def reminder_message(race_id, username):
@@ -19,9 +21,14 @@ def reminder_message(race_id, username):
         user = User.objects.get(username=username)
     except (RaceEvent.DoesNotExist, User.DoesNotExist) as e:
         raise CommandError(str(e))
-    suggestion = better_tipp(assist_for(user, [race]), race, better_by=float('-inf'))
+    if race.start_date_in_past:
+        raise CommandError(f"{race} has already started, Tipp-Assist only tipps upcoming races")
+    # unlike the reminders, let Tipp-Assist errors through so the traceback shows what's wrong
+    assist = assist_tipps([race], user)
+    suggestion = better_tipp(assist, race, better_by=float('-inf'))
     if suggestion is None:
-        raise CommandError(f"Tipp-Assist has no tipp for {race}")
+        raise CommandError(f"Tipp-Assist returned no tipp for {race} ({race.kind}). "
+                           f"It only covers {', '.join(markov_tipper.DISCIPLINES)}.")
     return sms_text(race, tipp_problem(user, race), suggestion)
 
 
