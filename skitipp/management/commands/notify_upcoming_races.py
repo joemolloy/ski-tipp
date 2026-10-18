@@ -5,6 +5,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 import boto3
 import logging
+import unicodedata
 
 from skitipp.context_processors import TIPP_ASSIST_GROUP
 from skitipp.models import SentReminder, RaceEvent, Tipp
@@ -106,42 +107,82 @@ def better_tipp(assist, race, better_by):
     if not res:
         return None
 
-    #FIS writes surnames in capitals: "PINHEIRO BRAATHEN Lucas" -> "PINHEIRO BRAATHEN"
-    name = lambda fis_id: " ".join(w for w in label(fis_id).split() if w.isupper()) or label(fis_id)
-    dnf = name(res["dnf"]) if res["dnf"] else "Alle im Ziel"
-    best = f"{', '.join(name(r) for r in res['podium'])}, DNF {dnf}"
-
     current = res.get("current")
-    if current is None:
-        return f"Tipp-Assist: {best} ({res['expected']:.1f} Pkt erwartet)."
-    if res["expected"] - current["expected"] >= better_by:
-        return f"Tipp-Assist hat einen besseren Tipp: {best} ({res['expected']:.1f} statt {current['expected']:.1f} Pkt erwartet)."
-    return None
+    current_expected = current["expected"] if current else None
+    if current is not None and res["expected"] - current_expected < better_by:
+        return None
+
+    #FIS writes surnames in capitals: "PINHEIRO BRAATHEN Lucas" -> "PINHEIRO BRAATHEN"
+    surname = lambda fis_id: " ".join(w for w in label(fis_id).split() if w.isupper()) or label(fis_id)
+    return dict(
+        podium=[surname(r) for r in res["podium"]],
+        dnf=surname(res["dnf"]) if res["dnf"] else None,
+        expected=res["expected"], current_expected=current_expected,
+    )
 
 
 def tipp_problem(user, race):
-    """Why this tipper needs a reminder for this race, or None if their tipp is fine."""
+    """Why this tipper needs a reminder for this race, as (email text, short SMS text), or None if their tipp is fine."""
     tipp = Tipp.objects.filter(
         tipper=user, race_event=race, created__lt=race.race_date
     ).order_by('-created').first()
 
     if tipp is None:
-        return "Du hast noch keinen Tipp abgegeben."
+        return "Du hast noch keinen Tipp abgegeben.", "Noch kein Tipp!"
 
     starters = set(race.start_list.values_list('racer_id', flat=True))
     if starters:
         not_starting = [r for r in (tipp.place_1, tipp.place_2, tipp.place_3) if r.fis_id not in starters]
         if not_starting:
             names = ', '.join(r.name for r in not_starting)
-            return f"In deinem Tipp steht nicht auf der Startliste: {names}."
+            return (f"In deinem Tipp steht nicht auf der Startliste: {names}.",
+                    f"{', '.join(r.lname for r in not_starting)} startet nicht!")
 
     return None
+
+
+SMS_LENGTH = 160
+
+
+def sms_text(race, problem, suggestion):
+    """The reminder SMS, kept to one 160 character message where the names allow it."""
+    when = timezone.localtime(race.race_date).strftime("%d.%m. %H:%M")
+    #a bare link, phones still make it clickable
+    link = (settings.SITE_URL + reverse('tipp_assist' if suggestion else 'create_tipp',
+                                        kwargs={} if suggestion else {'race_id': race.pk})).split("://")[-1]
+
+    def build(shorten):
+        parts = [f"{race} {when}:"]
+        if problem:
+            parts.append(problem[1])
+        if suggestion:
+            #the last word skips particles: "VON GRUENIGEN" -> "GRUENIGEN", "PINHEIRO BRAATHEN" -> "BRAATHEN"
+            name = (lambda n: n.split()[-1]) if shorten else (lambda n: n)
+            dnf = name(suggestion["dnf"]) if suggestion["dnf"] else "Alle im Ziel"
+            tipp = f"{', '.join(name(n) for n in suggestion['podium'])}, DNF {dnf}"
+            if suggestion["current_expected"] is None:
+                parts.append(f"Tipp-Assist: {tipp} ({suggestion['expected']:.1f} Pkt)")
+            else:
+                parts.append(f"Tipp-Assist besser: {tipp} ({suggestion['expected']:.1f} statt {suggestion['current_expected']:.1f} Pkt)")
+        parts.append(link)
+        return gsm_safe(" ".join(parts))
+
+    text = build(shorten=False)
+    return text if len(text) <= SMS_LENGTH else build(shorten=True)
+
+
+def gsm_safe(text):
+    # one character outside the GSM alphabet makes the whole SMS unicode, which fits only 70 characters
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode()
+
+
+def sms_parts(text):
+    return 1 if len(text) <= SMS_LENGTH else -(-len(text) // 153)
 
 
 def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
     race_date = timezone.localtime(race.race_date)
     tipp_url = settings.SITE_URL + reverse('create_tipp', kwargs={'race_id': race.pk})
-    assist_url = settings.SITE_URL + reverse('tipp_assist')
 
     when = race_date.strftime("%d.%m. um %H:%M")
     intro = f"Hoi {user}, {race} ({race.location}) startet am {when}."
@@ -149,23 +190,20 @@ def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
     #everyone gets an email about a missing or broken tipp
     email_text = None
     if problem and user.email:
-        email_text = f"{intro} {problem} Tippen: {tipp_url}"
+        email_text = f"{intro} {problem[0]} Tippen: {tipp_url}"
         auto_tipp_on = hasattr(user, 'tipper') and user.tipper.auto_tipp_since is not None
-        if auto_tipp_on and problem.startswith("Du hast noch keinen"):
+        if auto_tipp_on and problem[0].startswith("Du hast noch keinen"):
             email_text += " (Auto-Tipp ist aktiv: ohne Tipp bekommst du den Tipp der Mehrheit.)"
 
     #Tipp-Assist members with a mobile number also get an SMS, with Tipp-Assist's tipp when it's better
-    sms_text = None
-    if gets_sms(user) and (problem or suggestion):
-        parts = [intro, problem, suggestion, f"Tippen: {assist_url if suggestion else tipp_url}"]
-        sms_text = " ".join(p for p in parts if p)
+    sms = sms_text(race, problem, suggestion) if gets_sms(user) and (problem or suggestion) else None
 
     prefix = '[dryrun] ' if dryrun else ''
     if email_text:
         logging.warning(f"{prefix}{user} (email): {email_text}")
-    if sms_text:
-        logging.warning(f"{prefix}{user} (sms): {sms_text}")
-    if dryrun or not (email_text or sms_text):
+    if sms:
+        logging.warning(f"{prefix}{user} (sms, {len(sms)} chars, {sms_parts(sms)} part): {sms}")
+    if dryrun or not (email_text or sms):
         return
 
     if email_text:
@@ -177,7 +215,7 @@ def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
             fail_silently=True,
         )
 
-    if sms_text and sms_client:
-        sms_client.publish(PhoneNumber=user.tipper.mobile_number, Message=sms_text)
+    if sms and sms_client:
+        sms_client.publish(PhoneNumber=user.tipper.mobile_number, Message=sms)
 
     SentReminder(tipper=user, race_event=race).save()

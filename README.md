@@ -71,7 +71,7 @@ uv run manage.py migrate
 
 The SMS also carries Tipp-Assist's tipp. With no tipp yet, it suggests the best one. With a tipp, the SMS goes out when Tipp-Assist's best tipp beats it by at least 0.25 expected points (`--better-by`), even if nothing else is wrong with it.
 
-To check that SMS works, run `uv run manage.py send_test_sms +41791234567` on the server with `.env` loaded. It shows whether the AWS account is in the SMS sandbox and its spend limit, then sends a test message.
+To check that SMS works, run `uv run manage.py send_test_sms +41791234567` on the server with `.env` loaded. It shows whether the AWS account is in the SMS sandbox and its spend limit, then sends a test message. Add `--race <FIS id> --user <username>` to send that race's reminder SMS with Tipp-Assist's tipp, and `--dryrun` to only print it. Reminder SMS are kept to one 160 character message: accents are dropped, and long surnames are cut to their last word.
 
 The server runs it once a day at 8:00 Zurich time from a systemd timer, so it covers that day's races, which start at 9:00 at the earliest. To install the timer:
 
