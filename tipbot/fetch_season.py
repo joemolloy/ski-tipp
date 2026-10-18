@@ -64,7 +64,14 @@ def main(season_name, season_code, category):
         existing = RaceEvent.objects.filter(pk=race_id, finished=True).first()
         if existing and existing.start_list.exists():
             continue
-        race_event, _ = fis_connector.get_new_race_results(race_id, season)
+        try:
+            race_event, _ = fis_connector.get_new_race_results(race_id, season)
+        except fis_connector.FISRateLimited:
+            raise
+        except Exception as e:
+            # old pages of cancelled races can lack a date; skip them rather than stop the season
+            print(f"skipped race {race_id}: {e!r}", file=sys.stderr)
+            continue
         if race_event.start_list.filter(rank=1).exists():
             race_event.finished = True
         elif race_event.race_date.date() < date.today():

@@ -10,9 +10,10 @@ How it tipps a race:
    Baum-Welch; each racer's belief is filtered forward race by race, so a prediction only
    ever uses earlier results.
 2. Race. The predicted form, form in the sister discipline, the racer's own decayed win and
-   podium rate, an Elo-style rating, decayed World Cup points, venue form and the start group
-   give each starter a Plackett-Luce strength, fitted on past podiums. Podium chances follow exactly from those strengths. DNF chances come from the
-   form model and start group, calibrated on past DNFs.
+   podium rate, an Elo-style rating, decayed World Cup points, venue form, age, the start group
+   and, for speed races, the training runs give each starter a Plackett-Luce strength, fitted on
+   past podiums. Podium chances follow exactly from those strengths. DNF chances come from the
+   form model, the racer's own DNF rate, the discipline and start group, fitted on past DNFs.
 3. Tipp. It picks the podium tipp and DNF pick with the highest expected ski-tipp points,
    using the real scoring: start group multipliers, rank and podium bonuses and alle im Ziel.
    So a 12x outsider can beat a safe favourite.
@@ -29,6 +30,7 @@ import csv
 import json
 import math
 import os
+import re
 import sqlite3
 import sys
 from collections import defaultdict
@@ -36,6 +38,7 @@ from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB = os.path.join(HERE, "data", "history.sqlite3")
+DEFAULT_EXTRA = os.path.join(HERE, "data", "fis.sqlite3")
 DEFAULT_MODEL = os.path.join(HERE, "model.json")
 
 DISCIPLINES = {"Slalom": "SL", "Giant Slalom": "GS", "Super G": "SG", "Downhill": "DH"}
@@ -59,6 +62,8 @@ RATING_STEP = 0.3  # learning rate of the online Plackett-Luce rating
 RATING_SUMMER = 0.8  # ratings shrink towards 0 over the summer
 RATING_NEW = -1.0
 RATING_DEPTH = 10  # finishing places each rating update looks at
+USE_TRAINING = True
+USE_AGE = True
 WC_POINTS = [100, 80, 60, 50, 45, 40, 36, 32, 29, 26, 24, 22, 20, 18, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 # start groups, as in tipp_scorer.determine_start_group
@@ -120,12 +125,13 @@ class Race:
         self.fis_id, self.name, self.date = fis_id, name, date
         # world champs and olympics: nation quotas keep regulars out, so absence means nothing
         self.championship = championship
+        self.training = None  # speed races: racer -> (best rank, best gap, runs) in the training runs
         self.disc = DISCIPLINES[kind]
         self.family = FAMILY[self.disc]
         self.winter = winter_of(date)
         self.starters = starters
         self.multiplier = multiplier
-        self.venue = name.split("_")[0] if "_" in name else None  # short names look like Kitz_DH
+        self.venue = None  # canonical venue, see venue_key
 
     @property
     def finished(self):
@@ -141,39 +147,84 @@ def racer_names(con):
     return {fis_id: name.strip().split("\n")[0].strip() for fis_id, name in con.execute("select fis_id, name from skitipp_racer")}
 
 
+VENUE_ALIASES = [("val d", "valdisere"), ("gardena", "valgardena"), ("groeden", "valgardena"),
+                 ("bornio", "bormio"), ("grandvalira", "soldeu"), ("santa caterina", "santacaterina")]
+
+
+def venue_key(location):
+    """Canonical venue from the app's location text, which varies by season and import:
+    "Val d'IsÃ¨re (FRA)", "Val d Isere (FRA)", "Kitzbuehel 2x (AUT)", "Bornio (Replaces Val Gardena) (ITA)"."""
+    if not location:
+        return None
+    place = re.split(r"\(| - |- ", location)[0].lower()
+    place = re.sub(r"[^a-z]+", " ", place.encode("ascii", "ignore").decode())
+    for needle, key in VENUE_ALIASES:
+        if needle in place:
+            return key
+    words = place.split()
+    return words[0] if words else None
+
+
 def is_championship(season_name):
     return bool(season_name) and any(w in season_name.lower() for w in ("champ", "olymp", "games"))
 
 
-def load_history(db_path):
-    """Finished races in the four main disciplines, oldest first, plus racer names."""
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    names = racer_names(con)
-    rows = con.execute(
-        "select r.fis_id, r.short_name, r.kind, r.race_date, r.points_multiplier, s.name, "
-        "c.racer_id, c.start_number, c.rank, c.is_dnf "
-        "from skitipp_raceevent r join skitipp_racecompetitor c on c.race_event_id = r.fis_id "
-        "left join skitipp_season s on s.id = r.season_id "
-        "where r.cancelled = 0 order by r.race_date, r.fis_id"
-    )
-    races = {}
-    for fis_id, name, kind, date, mult, season, racer, bib, rank, dnf in rows:
-        if kind not in DISCIPLINES:
-            continue
-        if fis_id not in races:
-            races[fis_id] = Race(fis_id, name, kind, parse_date(date), [], mult or 1, is_championship(season))
-        races[fis_id].starters.append(Starter(racer, bib, rank, bool(dnf)))
-
-    human = defaultdict(dict)
-    for race_id, tipper, pts in con.execute(
-        "select p.race_event_id, u.username, p.standard_points + p.bonus_points "
-        "from skitipp_tipppointtally p join auth_user u on u.id = p.tipper_id where p.tipp_id is not null"
-    ):
-        human[race_id][tipper] = pts
-    con.close()
+def load_history(db_path, extra=()):
+    """Finished races in the four main disciplines, oldest first, plus racer names and the
+    tippers' points. Extra databases (e.g. tipbot/data/fis.sqlite3, scraped from FIS) add older
+    seasons and speed training runs."""
+    races, names, human = {}, {}, defaultdict(dict)
+    trainings = []
+    for path in [db_path, *[e for e in extra if e and os.path.exists(e)]]:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        for k, v in racer_names(con).items():
+            names.setdefault(k, v)
+        rows = con.execute(
+            "select r.fis_id, r.short_name, r.kind, r.race_date, r.points_multiplier, s.name, r.location, "
+            "c.racer_id, c.start_number, c.rank, c.is_dnf "
+            "from skitipp_raceevent r join skitipp_racecompetitor c on c.race_event_id = r.fis_id "
+            "left join skitipp_season s on s.id = r.season_id "
+            "where r.cancelled = 0 order by r.race_date, r.fis_id"
+        )
+        mine = {}
+        for fis_id, name, kind, date, mult, season, location, racer, bib, rank, dnf in rows:
+            if kind not in DISCIPLINES or (fis_id in races and fis_id not in mine):
+                continue
+            if fis_id not in mine:
+                mine[fis_id] = races[fis_id] = Race(fis_id, name, kind, parse_date(date), [], mult or 1, is_championship(season))
+                mine[fis_id].venue = venue_key(location)
+            mine[fis_id].starters.append(Starter(racer, bib, rank, bool(dnf)))
+        for race_id, tipper, pts in con.execute(
+            "select p.race_event_id, u.username, p.standard_points + p.bonus_points "
+            "from skitipp_tipppointtally p join auth_user u on u.id = p.tipper_id where p.tipp_id is not null"
+        ):
+            human[race_id][tipper] = pts
+        if con.execute("select 1 from sqlite_master where name = 'tipbot_racer'").fetchone():
+            BORN.update(con.execute("select racer, born from tipbot_racer where born is not null"))
+        if con.execute("select 1 from sqlite_master where name = 'tipbot_training'").fetchone():
+            trainings += con.execute(
+                "select e.race_id, t.date, t.racer, t.rank, t.gap, t.dnf from tipbot_event e "
+                "join tipbot_training t on t.event_id = e.event_id").fetchall()
+        con.close()
+    attach_training(races, trainings)
     finished = [r for r in races.values() if r.finished]
     finished.sort(key=lambda r: r.date)
     return finished, names, human
+
+
+def attach_training(races, trainings):
+    """race.training: racer -> (best rank, best gap in seconds, runs) over the event's training
+    runs before the race day. None when the event had no training runs, or they weren't fetched."""
+    by_race = defaultdict(lambda: defaultdict(list))
+    for race_id, date, racer, rank, gap, dnf in trainings:
+        race = races.get(race_id)
+        if race and date < race.date.date().isoformat():
+            by_race[race_id][racer].append((rank, gap, dnf))
+    for race_id, runs in by_race.items():
+        races[race_id].training = {
+            racer: (min((r for r, _, _ in rs if r), default=None),
+                    min((g for _, g, _ in rs if g is not None), default=None), len(rs))
+            for racer, rs in runs.items()}
 
 
 # ---------------------------------------------------------------- form HMM
@@ -278,6 +329,8 @@ class FormTracker:
         self.rating = {}          # (racer, disc) -> (online Plackett-Luce rating, winter)
         self.points = {}          # (racer, disc) -> decayed (results, World Cup points)
         self.venue_points = {}    # (racer, disc, venue) -> decayed (results, World Cup points)
+        self.scored = defaultdict(set)  # racer -> winters with World Cup points
+        self.dnfs = {}            # (racer, disc) -> decayed (starts, DNFs)
 
     def predict(self, racer, disc, winter):
         key = (racer, disc)
@@ -299,7 +352,7 @@ class FormTracker:
         vn, vp = self.venue_points.get((racer, race.disc, race.venue), (0.0, 0.0))
         venue = (vp + VENUE_PRIOR * overall) / (vn + VENUE_PRIOR)
         return [self.get_rating(racer, race.disc, race.winter), math.log(1 + overall),
-                math.log(1 + venue) - math.log(1 + overall)]
+                math.log(1 + venue) - math.log(1 + overall)] + training_features(race, racer) + age_features(race, racer)
 
     def get_rating(self, racer, disc, winter):
         if (racer, disc) not in self.rating:
@@ -322,6 +375,8 @@ class FormTracker:
             grad[i] += 1
             remaining.discard(i)
         for k, s in enumerate(race.starters):
+            n, d = self.dnfs.get((s.racer, race.disc), (0.0, 0.0))
+            self.dnfs[(s.racer, race.disc)] = (DECAY * n + 1, DECAY * d + s.dnf)
             self.rating[(s.racer, race.disc)] = (r[k] + RATING_STEP * grad[k], race.winter)
             won = WC_POINTS[s.rank - 1] if s.rank and not s.dnf and s.rank <= 30 else 0
             n, pts = self.points.get((s.racer, race.disc), (0.0, 0.0))
@@ -330,8 +385,22 @@ class FormTracker:
             vn, vp = self.venue_points.get(key, (0.0, 0.0))
             self.venue_points[key] = (VENUE_DECAY * vn + 1, VENUE_DECAY * vp + won)
 
+    def dnf_rate(self, racer, disc, emission):
+        """The racer's own recent DNF rate in the discipline, shrunk towards the form prediction."""
+        n, d = self.dnfs.get((racer, disc), (0.0, 0.0))
+        return (d + SHRINK * emission[DNF]) / (n + SHRINK)
+
+    def eligible(self, racer, winter):
+        # the tipp form lists the World Cup standings, so racers with points this winter or,
+        # before the list is refreshed, last winter
+        return winter in self.scored[racer] or winter - 1 in self.scored[racer]
+
     def observe(self, race):
         self._observe_ratings(race)
+        if not race.championship:
+            for s in race.starters:
+                if s.rank and not s.dnf and s.rank <= 30:
+                    self.scored[s.racer].add(race.winter)
         present = set()
         for s in race.starters:
             self._observe(s.racer, race, outcome(s.rank, s.dnf))
@@ -410,7 +479,30 @@ def features(family, emission, sibling, record, ratings, bib):
     return [math.log(p_win + 1e-4), math.log(p_pod + 1e-4), math.log(p_top10 + 1e-3), math.log(p_top30 + 1e-3), sib] + own + ratings + groups
 
 
-FEATURE_NAMES = ["log P(win)", "log P(podium)", "log P(top10)", "log P(top30)", "sister discipline log P(top10)", "own log win rate", "own log podium rate", "rating", "log decayed WC points", "venue form", "start group 2", "start group 3", "start group 4"]
+BORN = {}  # racer -> birth year, from tipbot/data/fis.sqlite3
+
+
+def age_features(race, racer):
+    """Distance from a peak age of 29, and its square; zero when the birth year is unknown."""
+    if not USE_AGE or racer not in BORN:
+        return [0.0, 0.0]
+    a = (race.winter + 1 - BORN[racer] - 29) / 5
+    return [a, a * a]
+
+
+def training_features(race, racer):
+    """Speed races: how the racer went in the event's training runs before race day. Zero when
+    there were none, so tech races and untrained events don't move these weights."""
+    if not USE_TRAINING or not race.training:
+        return [0.0, 0.0, 0.0]
+    if racer not in race.training:
+        return [0.0, 0.0, 1.0]
+    rank, gap, _ = race.training[racer]
+    return [math.log(rank or 60) - math.log(10), min(gap if gap is not None else 3.0, 3.0), 0.0]
+
+
+FEATURE_NAMES = ["log P(win)", "log P(podium)", "log P(top10)", "log P(top30)", "sister discipline log P(top10)", "own log win rate", "own log podium rate", "rating", "log decayed WC points", "venue form",
+                 "training log best rank", "training best gap (s)", "skipped training", "age - 29 (/5)", "age squared", "start group 2", "start group 3", "start group 4"]
 
 
 def solve(H, g):
@@ -479,13 +571,14 @@ def fit_logistic(X, ys, ridge=1.0, iterations=15):
     return w
 
 
-def dnf_features(family, emission, bib):
-    # DNF depends on form but also on the start group: late starters race on a rutted course
+def dnf_features(race, emission, bib, own_dnf_rate):
+    # DNF depends on form and the racer's own record, on the discipline (slalom more than GS)
+    # and on the start group: late starters race on a rutted course
     groups = [0.0, 0.0, 0.0]
-    g = start_group(family, bib)
+    g = start_group(race.family, bib)
     if g > 1:
         groups[g - 2] = 1.0
-    return [1.0, logit(emission[DNF])] + groups
+    return [1.0, logit(emission[DNF]), logit(own_dnf_rate), 1.0 if race.disc in ("SL", "DH") else 0.0] + groups
 
 
 class RaceModel:
@@ -531,7 +624,7 @@ class RaceModel:
                 em = tracker.hmms[race.disc].emit(tracker.predict(s.racer, race.disc, race.winter))
                 X.append(features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
                                   tracker.ratings(s.racer, race), s.bib))
-                dnf_X[race.family].append((dnf_complete, dnf_features(race.family, em, s.bib)))
+                dnf_X[race.family].append((dnf_complete, dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))))
                 dnf_ys[race.family].append((dnf_complete, 1.0 if s.dnf else 0.0))
             finishers = [i for i, s in enumerate(race.starters) if not s.dnf and s.rank]
             order = sorted(finishers, key=lambda i: race.starters[i].rank)
@@ -559,7 +652,7 @@ class RaceModel:
             x = features(race.family, em, tracker.emit_sibling(s.racer, race), tracker.own_record(s.racer, race.disc, em),
                          tracker.ratings(s.racer, race), s.bib)
             u = sum(a * b for a, b in zip(w, x))
-            x = dnf_features(race.family, em, s.bib)
+            x = dnf_features(race, em, s.bib, tracker.dnf_rate(s.racer, race.disc, em))
             p_dnf = 1 / (1 + math.exp(-sum(a * b for a, b in zip(wd, x))))
             out.append((u, p_dnf, em))
         return out
@@ -617,6 +710,7 @@ class RaceOdds:
             if st.bib <= 30:
                 self.p_all_in *= 1 - p
         self.mult = [multiplier(race.family, st.bib) for st in race.starters]
+        self.eligible = None
         self._pairs = {}
 
     def ordered(self, a, b, c):
@@ -639,9 +733,14 @@ class RaceOdds:
         # podium bonus: 0.5 for exactly two right, 1 for three = 0.5 * sum of pairs - 0.5 * triple
         return e + 0.5 * (self.pair(a, b) + self.pair(a, c) + self.pair(b, c)) - 0.5 * self.triple(a, b, c)
 
+    def choices(self):
+        """Starters a tipper can pick: the app only offers racers in the World Cup standings."""
+        allowed = [i for i in range(len(self.mult)) if self.eligible is None or self.eligible[i]]
+        return allowed if len(allowed) >= 4 else list(range(len(self.mult)))
+
     def best_podium(self, candidates=14):
         value = lambda i: self.mult[i] * self.p_podium[i] + self.p_rank[i][0]
-        pool = sorted(range(len(self.mult)), key=value, reverse=True)[:candidates]
+        pool = sorted(self.choices(), key=value, reverse=True)[:candidates]
         best = max(
             ((a, b, c) for a in pool for b in pool for c in pool if len({a, b, c}) == 3),
             key=lambda t: self.expected_points(*t),
@@ -650,12 +749,12 @@ class RaceOdds:
 
     def favourites(self):
         """Baseline: the three most likely podium finishers, ordered by win chance."""
-        top = sorted(range(len(self.mult)), key=lambda i: self.p_podium[i], reverse=True)[:3]
+        top = sorted(self.choices(), key=lambda i: self.p_podium[i], reverse=True)[:3]
         return tuple(sorted(top, key=lambda i: -self.p_rank[i][0]))
 
     def best_dnf(self):
         """(starter index or None for alle im Ziel, expected DNF points)."""
-        i = max(range(len(self.p_dnf)), key=lambda i: self.p_dnf[i])
+        i = max(self.choices(), key=lambda i: self.p_dnf[i])
         if 0.5 * self.p_all_in > self.p_dnf[i]:
             return None, 0.5 * self.p_all_in
         return i, self.p_dnf[i]
@@ -683,6 +782,7 @@ def score(race, podium_racers, dnf_racer):
 
 def tipp(model, tracker, race, boosts=None):
     sim = model.odds(tracker, race, boosts)
+    sim.eligible = [tracker.eligible(s.racer, race.winter) for s in race.starters]
     (a, b, c), e_pod = sim.best_podium()
     dnf_i, e_dnf = sim.best_dnf()
     racers = [race.starters[i].racer for i in (a, b, c)]
@@ -693,7 +793,7 @@ def tipp(model, tracker, race, boosts=None):
 # ---------------------------------------------------------------- commands
 
 def cmd_backtest(args):
-    races, names, human = load_history(args.db)
+    races, names, human = load_history(args.db, args.extra_db)
     winters = sorted({r.winter for r in races})
     if args.scheme == "rolling":
         test_winters = [w for w in winters if w >= winters[0] + args.min_train]
@@ -766,7 +866,7 @@ def cmd_backtest(args):
 
 
 def cmd_train(args):
-    races, _, _ = load_history(args.db)
+    races, _, _ = load_history(args.db, args.extra_db)
     print(f"training on {len(races)} races")
     model = RaceModel.train(races)
     with open(args.model, "w") as f:
@@ -805,7 +905,7 @@ def tracker_until(model, races, date):
 
 
 def cmd_form(args):
-    races, names, _ = load_history(args.db)
+    races, names, _ = load_history(args.db, args.extra_db)
     model = load_model(args, races)
     date = datetime.fromisoformat(args.date) if args.date else datetime.now()
     tracker = tracker_until(model, races, date)
@@ -856,11 +956,16 @@ def guessed_start_list(model, tracker, disc, winter, names, size=60):
         em = hmm.emit(tracker.predict(r, disc, winter))
         return em[WIN] * 3 + em[PODIUM] + em[TOP10] / 3
     ranked = sorted(recent, key=strength, reverse=True)[:size]
-    return [Starter(r, i + 1) for i, r in enumerate(ranked)]
+    if FAMILY[disc] == "speed":
+        # speed seeding: the top 10 draw bibs 6-15, the next five get 1-5
+        bibs = list(range(6, 16)) + list(range(1, 6)) + list(range(16, size + 1))
+    else:
+        bibs = list(range(1, size + 1))
+    return [Starter(r, b) for r, b in zip(ranked, bibs)]
 
 
 def cmd_predict(args):
-    races, names, _ = load_history(args.db)
+    races, names, _ = load_history(args.db, args.extra_db)
     model = load_model(args, races)
     if args.race:
         con = sqlite3.connect(f"file:{args.race_db or args.db}?mode=ro", uri=True)
@@ -882,11 +987,21 @@ def cmd_predict(args):
         date = datetime.fromisoformat(args.date) if args.date else datetime.now()
         starters = read_start_list(args.start_list, names) if args.start_list else None
 
+    if args.fis_race:
+        # training runs straight from FIS, for a race that hasn't happened
+        sys.path.insert(0, HERE)
+        import fetch_extras
+        _, runs = fetch_extras.race_extras(args.fis_race)
+        trainings = [(fis_id, d, r["racer"], r["rank"], r["gap"], r["dnf"]) for d, r in runs]
     tracker = tracker_until(model, races, date)
     guessed = not starters
     race = Race(fis_id, name, kind, date, starters or [])
     if args.venue:
-        race.venue = args.venue
+        race.venue = venue_key(args.venue)
+    if args.fis_race:
+        attach_training({fis_id: race}, trainings)
+        if race.training:
+            print(f"{len({d for _, d, *_ in trainings})} training runs from FIS", file=sys.stderr)
     if guessed:
         race.starters = guessed_start_list(model, tracker, race.disc, race.winter, names)
     boosts = {}
@@ -916,6 +1031,9 @@ def cmd_predict(args):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--db", default=DEFAULT_DB, help="history database (default tipbot/data/history.sqlite3)")
+    p.add_argument("--extra-db", action="append",
+                   help="more history scraped from FIS: older seasons, training runs (default tipbot/data/fis.sqlite3)")
+    p.add_argument("--no-extra", action="store_true", help="use the history database alone")
     p.add_argument("--model", default=DEFAULT_MODEL)
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -935,12 +1053,14 @@ def main():
     t.add_argument("--discipline", choices=FAMILY)
     t.add_argument("--start-list", help="csv of bib,racer where racer is a FIS code or name")
     t.add_argument("--date")
-    t.add_argument("--venue", help="venue as in the app's short names, e.g. Kitz or Soel, for venue form")
+    t.add_argument("--fis-race", type=int, help="FIS race id: fetch the race's training runs from FIS")
+    t.add_argument("--venue", help="venue for venue form, e.g. Kitzbuehel or Soelden")
     t.add_argument("--top", type=int, default=15)
     t.add_argument("--boost", action="append", default=[], metavar="NAME=FACTOR",
                    help="scale a racer's chances by what you know, e.g. 'HAUGAN Timon=2' or 'KRANJEC Zan=0.5'")
 
     args = p.parse_args()
+    args.extra_db = [] if args.no_extra else (args.extra_db or [DEFAULT_EXTRA])
     {"backtest": cmd_backtest, "train": cmd_train, "form": cmd_form, "predict": cmd_predict}[args.command](args)
 
 
