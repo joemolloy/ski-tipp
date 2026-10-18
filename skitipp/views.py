@@ -30,7 +30,7 @@ from django.views.generic.base import TemplateView
 import skitipp
 
 from skitipp.forms import *
-from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Season
+from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Season, Tipper
 
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
@@ -555,6 +555,20 @@ class PointAdjustmentListView(LoginRequiredMixin, UserPassesTestMixin, SeasonCon
 def deletePointAdjustment(request, season_id, adjustment_id):
     get_object_or_404(PointAdjustment, pk=adjustment_id).delete()
     return redirect('point_adjustments', season_id=season_id)
+
+@login_required
+def profile(request):
+    tipper, _ = Tipper.objects.get_or_create(user=request.user, defaults={'mobile_number': ''})
+    form = ProfileForm(request.POST or None, instance=request.user, tipper=tipper)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, "Profile saved.")
+        return redirect('profile')
+
+    return render(request, 'profile.html', dict(
+        form=form,
+        selected_season=Season.objects.order_by('-current', '-start_date').first(),
+    ))
 
 class AboutView(TemplateView):
     template_name = "about.html"

@@ -19,6 +19,8 @@ class RacerQuerySet(models.QuerySet):
 class Tipper(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     mobile_number = models.CharField(max_length=20)
+    # race-morning reminders about a missing tipp, by email (and SMS for Tipp-Assist members)
+    reminders = models.BooleanField(default=True)
 
 
 class Racer(models.Model):

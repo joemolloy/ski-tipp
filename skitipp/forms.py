@@ -145,3 +145,32 @@ class CustomSignUpForm(BootstrapFormMixin, UserCreationForm):
         if commit:
             user.save()
         return user
+
+
+class ProfileForm(BootstrapFormMixin, forms.ModelForm):
+    reminders = forms.BooleanField(
+        required=False, label="Race-morning reminders",
+        help_text="On the morning of a race, an email if you haven't tipped yet or tipped someone who isn't starting.")
+
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name", "email")
+        labels = {
+            "first_name": "First name",
+            "last_name": "Last name",
+            "email": "Email",
+        }
+        help_texts = {
+            "email": "Optional, but reminders need it.",
+        }
+
+    def __init__(self, *args, tipper=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tipper = tipper
+        self.fields["reminders"].initial = tipper.reminders if tipper else True
+
+    def save(self, commit=True):
+        user = super().save(commit)
+        self.tipper.reminders = self.cleaned_data["reminders"]
+        self.tipper.save(update_fields=["reminders"])
+        return user

@@ -66,7 +66,8 @@ class Command(BaseCommand):
         for race in upcoming_races:
             if race.season is None:
                 continue
-            tippers = race.season.tippers.filter(is_active=True).select_related('tipper')
+            # reminders are on unless the tipper turned them off on their profile
+            tippers = race.season.tippers.filter(is_active=True).exclude(tipper__reminders=False).select_related('tipper')
             for user in tippers:
                 if SentReminder.objects.filter(tipper=user, race_event=race).exists() and not options['resend']:
                     continue

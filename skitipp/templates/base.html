@@ -90,6 +90,7 @@
                 {{ request.user }}
                 </a>
                 <div class="dropdown-menu  dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
+                <a class="dropdown-item" href="{% url 'profile' %}">Profile</a>
                 {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'update_racers' %}">Update Start Lists</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'staff_guide' %}">Staff guide</a> {% endif %}
