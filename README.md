@@ -58,7 +58,7 @@ ssh bitnami@<server>
 cd /opt/bitnami/projects/ski-tipp && deploy/deploy.sh gunicorn
 ```
 
-`deploy.sh` pulls, runs `uv sync`, collects static files and restarts the service. It does not run migrations. When a change adds one, load the server's environment first so it hits the live database:
+`deploy.sh` pulls, runs `uv sync`, applies any new migrations to the live database (from `.env`), collects static files and restarts the service. To run migrations by hand, load the server's environment first so they hit the live database:
 
 ```
 set -a; . ./.env; set +a
