@@ -49,6 +49,8 @@ def create_short_name(race_name, race_kind):
 
     return abrv_name.strip() + "_" + abrv_kind
 
+DEFAULT_START_HOUR = 9
+
 def extract_race_info(tree, fis_race_id, season=None):
 
     race_name = tree.xpath('//div[@class="event-header__name heading_off-sm-style"]//h1/text()')[0]
@@ -63,11 +65,11 @@ def extract_race_info(tree, fis_race_id, season=None):
     
     if race_time_elems:
         date_time_string = race_time_elems[0].attrib['data-iso-date']
+        race_date_time = parse(date_time_string)
     else:
+        # no start time published yet; races start at 9:00 or later, so tipping stays open until then
         date_time_string = race_date
-
-
-    race_date_time = parse(date_time_string)
+        race_date_time = parse(date_time_string).replace(hour=DEFAULT_START_HOUR, minute=0)
     race_short_name = create_short_name(race_name, race_kind)
 
     print(date_time_string)

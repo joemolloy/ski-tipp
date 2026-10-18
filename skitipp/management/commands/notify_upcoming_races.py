@@ -10,6 +10,9 @@ from skitipp.models import SentReminder, RaceEvent, Tipp
 import datetime
 from django.utils import timezone
 
+QUIET_HOURS_START = 22
+QUIET_HOURS_END = 7
+
 
 class Command(BaseCommand):
     help = "Remind tippers who haven't tipped an upcoming race, or tipped a racer who isn't starting"
@@ -42,6 +45,11 @@ class Command(BaseCommand):
 
     def handle(self, **options):
         now = timezone.now()
+
+        # nobody wants a tipp reminder at 3am; races start at 9:00 at the earliest, so 7:00 is still in time
+        if not QUIET_HOURS_END <= timezone.localtime(now).hour < QUIET_HOURS_START and not options['resend']:
+            logging.warning("Quiet hours, not sending reminders")
+            return
         upcoming_races = RaceEvent.objects.filter(
             cancelled=False,
             race_date__gt=now,
@@ -100,8 +108,7 @@ def send_reminder(sms_client, user, race, problem, dryrun):
     race_date = timezone.localtime(race.race_date)
     tipp_url = settings.SITE_URL + reverse('create_tipp', kwargs={'race_id': race.pk})
 
-    #races without a known start time are stored at midnight
-    when = race_date.strftime("%d.%m") if race_date.time() == datetime.time(0, 0) else race_date.strftime("%d.%m. um %H:%M")
+    when = race_date.strftime("%d.%m. um %H:%M")
     text = f"Hoi {user}, {race} ({race.location}) startet am {when}. {problem} Tippen: {tipp_url}"
 
     auto_tipp_on = hasattr(user, 'tipper') and user.tipper.auto_tipp_since is not None
