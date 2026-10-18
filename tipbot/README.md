@@ -144,7 +144,7 @@ Because of these, the bot doesn't trust its per-racer numbers for bib 31+. It sc
 
 ## Tipp-Assist
 
-The Tipp-Assist page, `/app/tipp-assist/` (user menu → Tipp-Assist), shows the bot's tipps for the next 3, 6 or 10 races: the podium and DNF pick with bibs and multipliers, expected points, the main contenders' odds, and your own current tipp.
+The Tipp-Assist page, `/app/tipp-assist/` (Tipp-Assist in the top bar), shows the bot's tipps for the next 3, 6 or 10 races: the podium and DNF pick with bibs and multipliers, expected points, the main contenders' odds, and your own current tipp.
 
 - **Use this tipp** saves the bot's tipp as yours, through the same rules as the tipp form: only before the start, and only racers the form offers.
 - **Not starting** takes racers (autocomplete) who are injured or skipping. They're left out of every prediction until you remove them.

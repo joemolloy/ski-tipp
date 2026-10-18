@@ -96,6 +96,9 @@ def tipp_assist_page(request):
         cards.append(dict(
             race=race,
             podium=[dict(fis_id=r, name=label(r), bib=res["bib"].get(r), mult=res["mult"].get(r)) for r in res["podium"]],
+            options=[dict(expected=o["expected"],
+                          podium=[dict(fis_id=r, name=label(r), bib=res["bib"].get(r), mult=res["mult"].get(r)) for r in o["podium"]])
+                     for o in res["options"]],
             dnf=dict(fis_id=res["dnf"] or 0, name=label(res["dnf"]) if res["dnf"] else "Alle im Ziel",
                      p=res["p_dnf"].get(res["dnf"]) if res["dnf"] else res["p_all_in"]),
             expected=res["expected"], guessed_bibs=res["guessed_bibs"], training_runs=res["training_runs"],

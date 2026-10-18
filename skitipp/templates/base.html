@@ -61,6 +61,11 @@
       <li class="nav-item {{ point_adjustments }}">
         <a class="nav-link" href="{% url 'point_adjustments' selected_season.pk %}">Points</a>
       </li>
+      {% if tipp_assist_user %}
+      <li class="nav-item {% if request.resolver_match.url_name == 'tipp_assist' %}active{% endif %}">
+        <a class="nav-link" href="{% url 'tipp_assist' %}">Tipp-Assist</a>
+      </li>
+      {% endif %}
       {% if user.is_staff %} 
       <ul class="navbar-nav">
         <li class="nav-item {{ season }} dropdown">
@@ -87,7 +92,6 @@
                 {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'update_racers' %}">Update Start Lists</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'staff_guide' %}">Staff guide</a> {% endif %}
-                {% if tipp_assist_user %} <a class="dropdown-item" href="{% url 'tipp_assist' %}">Tipp-Assist</a> {% endif %}
                 <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                 </div>
             </li>

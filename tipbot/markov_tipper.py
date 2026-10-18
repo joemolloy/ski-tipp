@@ -849,13 +849,21 @@ class RaceOdds:
         return allowed if len(allowed) >= 4 else list(range(len(self.mult)))
 
     def best_podium(self, candidates=14):
+        return self.best_podiums(1, candidates)[0]
+
+    def best_podiums(self, k=3, candidates=14):
+        """The k best podium tipps with different racers, each in its best order, as
+        [((a, b, c), expected points)]. Reorderings of the same three would only differ by
+        hundredths, so they don't count as alternatives."""
         value = lambda i: self.mult[i] * self.p_podium[i] + self.p_rank[i][0]
         pool = sorted(self.choices(), key=value, reverse=True)[:candidates]
-        best = max(
-            ((a, b, c) for a in pool for b in pool for c in pool if len({a, b, c}) == 3),
-            key=lambda t: self.expected_points(*t),
-        )
-        return best, self.expected_points(*best)
+        best = {}
+        for t in ((a, b, c) for a in pool for b in pool for c in pool if len({a, b, c}) == 3):
+            e = self.expected_points(*t)
+            key = frozenset(t)
+            if key not in best or e > best[key][1]:
+                best[key] = (t, e)
+        return sorted(best.values(), key=lambda te: -te[1])[:k]
 
     def favourites(self):
         """Baseline: the three most likely podium finishers, ordered by win chance."""
@@ -1037,8 +1045,10 @@ def tipps_for(upcoming, db_path, extra=(), model_path=DEFAULT_MODEL, exclude=(),
             attach_training({race.fis_id: race}, [(race.fis_id, d, r, rank, gap, dnf) for d, r, rank, gap, dnf in runs])
         podium, dnf, exp, odds = tipp(model, tracker, race, eligible=eligible)
         order = sorted(range(len(race.starters)), key=lambda i: -odds.p_podium[i])
+        dnf_points = exp - odds.best_podiums(1)[0][1]
+        options = [dict(podium=[race.starters[i].racer for i in t], expected=e + dnf_points) for t, e in odds.best_podiums(3)]
         out.append(dict(
-            fis_id=race.fis_id, podium=podium, dnf=dnf, expected=exp, guessed_bibs=not listed,
+            fis_id=race.fis_id, podium=podium, dnf=dnf, expected=exp, options=options, guessed_bibs=not listed,
             training_runs=len({d for d, *_ in runs}) if runs else 0,
             contenders=[dict(racer=race.starters[i].racer, bib=race.starters[i].bib, mult=odds.mult[i],
                              p_win=odds.p_rank[i][0], p_podium=odds.p_podium[i], p_dnf=odds.p_dnf[i]) for i in order[:12]],

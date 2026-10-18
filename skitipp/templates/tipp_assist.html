@@ -10,6 +10,7 @@
 .assist-card .table td, .assist-card .table th { padding: .2rem .4rem; }
 .assist-tipp li { margin-bottom: .15rem; }
 .assist-mult { font-size: .75rem; }
+.assist-tabs .nav-link { padding: .25rem .6rem; font-size: .85rem; }
 </style>
 
 <div class="row align-items-center mb-2">
@@ -59,24 +60,38 @@
     <div class="card-body">
         <div class="row">
             <div class="col-md-5 mb-2">
-                <ol class="assist-tipp pl-3 mb-1">
-                    {% for p in card.podium %}
-                    <li>{{ p.name }} <span class="text-muted assist-mult">bib {{ p.bib }}, x{{ p.mult }}</span></li>
+                <ul class="nav nav-tabs assist-tabs mb-2" role="tablist">
+                    {% for o in card.options %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if forloop.first %}active{% endif %}" data-toggle="tab" role="tab"
+                           href="#opt-{{ card.race.fis_id }}-{{ forloop.counter }}" aria-controls="opt-{{ card.race.fis_id }}-{{ forloop.counter }}"
+                           aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">{{ o.expected|floatformat:2 }} pts</a>
+                    </li>
                     {% endfor %}
-                </ol>
-                <div class="mb-1">DNF: {{ card.dnf.name }} <span class="text-muted assist-mult">{% widthratio card.dnf.p 1 100 %}%</span></div>
-                <div class="mb-2">Expected points: <strong>{{ card.expected|floatformat:2 }}</strong></div>
+                </ul>
+                <div class="tab-content">
+                    {% for o in card.options %}
+                    <div class="tab-pane {% if forloop.first %}show active{% endif %}" id="opt-{{ card.race.fis_id }}-{{ forloop.counter }}" role="tabpanel">
+                        <ol class="assist-tipp pl-3 mb-1">
+                            {% for p in o.podium %}
+                            <li>{{ p.name }} <span class="text-muted assist-mult">bib {{ p.bib }}, x{{ p.mult }}</span></li>
+                            {% endfor %}
+                        </ol>
+                        <div class="mb-2">DNF: {{ card.dnf.name }} <span class="text-muted assist-mult">{% widthratio card.dnf.p 1 100 %}%</span></div>
+                        <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}" class="mb-2"
+                              onsubmit="return confirm('Submit this tipp as your tipp for {{ card.race.short_name|escapejs }}?');">
+                            {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
+                            {% for p in o.podium %}<input type="hidden" name="place_{{ forloop.counter }}" value="{{ p.fis_id }}">{% endfor %}
+                            <input type="hidden" name="dnf" value="{{ card.dnf.fis_id }}">
+                            <button type="submit" class="btn btn-primary btn-sm">Use this tipp</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
                 {% if card.mine %}
-                <div class="small text-muted mb-2">Your tipp: {{ card.mine.place_1 }}, {{ card.mine.place_2 }}, {{ card.mine.place_3 }}{% if card.mine.dnf %}; DNF {{ card.mine.dnf }}{% endif %}
+                <div class="small text-muted">Your tipp: {{ card.mine.place_1 }}, {{ card.mine.place_2 }}, {{ card.mine.place_3 }}{% if card.mine.dnf %}; DNF {{ card.mine.dnf }}{% endif %}
                     ({{ card.mine.created|localtime|date:"j M H:i" }})</div>
                 {% endif %}
-                <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}"
-                      onsubmit="return confirm('Submit this tipp as your tipp for {{ card.race.short_name|escapejs }}?');">
-                    {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
-                    {% for p in card.podium %}<input type="hidden" name="place_{{ forloop.counter }}" value="{{ p.fis_id }}">{% endfor %}
-                    <input type="hidden" name="dnf" value="{{ card.dnf.fis_id }}">
-                    <button type="submit" class="btn btn-primary btn-sm">Use this tipp</button>
-                </form>
             </div>
             <div class="col-md-7 table-responsive">
                 <table class="table table-sm table-striped mb-0">
