@@ -192,9 +192,6 @@ def send_reminder(sms_client, user, race, problem, suggestion, dryrun):
     email_text = None
     if problem and user.email:
         email_text = f"{intro} {problem[0]} Tippen: {tipp_url}"
-        auto_tipp_on = hasattr(user, 'tipper') and user.tipper.auto_tipp_since is not None
-        if auto_tipp_on and problem[0].startswith("Du hast noch keinen"):
-            email_text += " (Auto-Tipp ist aktiv: ohne Tipp bekommst du den Tipp der Mehrheit.)"
 
     #Tipp-Assist members with a mobile number also get an SMS, with Tipp-Assist's tipp when it's better
     sms = sms_text(race, problem, suggestion) if gets_sms(user) and (problem or suggestion) else None

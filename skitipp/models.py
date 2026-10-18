@@ -19,8 +19,6 @@ class RacerQuerySet(models.QuerySet):
 class Tipper(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     mobile_number = models.CharField(max_length=20)
-    # when set, a forgotten tipp for races starting after this is filled with the crowd's consensus tipp
-    auto_tipp_since = models.DateTimeField(null=True, blank=True)
 
 
 class Racer(models.Model):
@@ -208,7 +206,6 @@ class Tipp(models.Model):
     comment = models.TextField(null=True, blank=True)
 
     corrected_tipp = models.BooleanField(default=False)
-    auto_tipp = models.BooleanField(default=False)
 
     def get_absolute_url(self):
         return reverse("create_tipp", kwargs={"race_id": self.race_event.pk})

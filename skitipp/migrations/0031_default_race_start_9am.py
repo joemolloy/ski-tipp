@@ -19,7 +19,7 @@ def move_midnight_starts_to_9am(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('skitipp', '0031_auto_tipp'),
+        ('skitipp', '0030_clean_racer_names'),
     ]
 
     operations = [

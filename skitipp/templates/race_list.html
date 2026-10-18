@@ -3,21 +3,6 @@
 
 {% block page_content %}
 
-<div class="row mb-2">
-    <div class="col-md-6">
-        <form method="post" action="{% url 'toggle_auto_tipp' %}" class="auto_tipp_toggle">
-            {% csrf_token %}
-            {% if auto_tipp_on %}
-                Auto-tipp is <b>on</b>: if you forget a race, you get the crowd's consensus tipp.
-                <button type="submit" class="btn btn-sm btn-outline-secondary">Turn off</button>
-            {% else %}
-                Forget to tipp sometimes? Auto-tipp enters the crowd's consensus tipp for any race you miss.
-                <button type="submit" class="btn btn-sm btn-outline-primary">Turn on</button>
-            {% endif %}
-        </form>
-    </div>
-</div>
-
 {% regroup object_list by race_status as status_list %}
 {% for status in status_list %}
 <div class="row mb-2">

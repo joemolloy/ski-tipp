@@ -30,9 +30,7 @@ from django.views.generic.base import TemplateView
 import skitipp
 
 from skitipp.forms import *
-from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Season, Tipper
-from django.utils import timezone
-from django.views.decorators.http import require_POST
+from skitipp.models import RaceEvent, Racer, TippPointTally, PointAdjustment, Season
 
 from django.contrib.auth.models import User
 from django.forms.models import model_to_dict
@@ -123,21 +121,7 @@ class RaceListView(LoginRequiredMixin, ListView):
         context['race_list'] = 'active'
         context['selected_season'] = self.kwargs['selected_season']
         #context['selected_season'] = selected_season
-        context['auto_tipp_on'] = Tipper.objects.filter(user=self.request.user, auto_tipp_since__isnull=False).exists()
         return context
-
-@login_required
-@require_POST
-def toggle_auto_tipp(request):
-    tipper, _ = Tipper.objects.get_or_create(user=request.user, defaults={'mobile_number': ''})
-    tipper.auto_tipp_since = None if tipper.auto_tipp_since else timezone.now()
-    tipper.save(update_fields=['auto_tipp_since'])
-
-    if tipper.auto_tipp_since:
-        messages.success(request, "Auto-tipp is on. If you miss a race, you get the crowd's consensus tipp.")
-    else:
-        messages.info(request, "Auto-tipp is off.")
-    return redirect('race_list_current')
 
 class RaceEventCreateView(LoginRequiredMixin, CreateView):
     template_name = 'race_event_form.html'
@@ -468,8 +452,6 @@ def publish_tipps(request, race_id):
     race_event.in_progress = True
     race_event.finished = False
     race_event.save()
-
-    tipp_scorer.create_auto_tipps(race_event)
 
     messages.info(request, "Tipps for %s have been published, tipping is now closed." % race_event)
     return HttpResponseRedirect(race_event.get_absolute_url())

@@ -83,10 +83,6 @@ sudo systemctl enable --now ski-tipp-reminders.timer
 
 When FIS hasn't published a start time yet, races are imported at 9:00 local time, the earliest they start, and get their real time when the race is updated.
 
-## Auto-tipp
-
-Tippers can turn on auto-tipp at the top of the race list. When the tipps are published or the race is finalized, anyone with auto-tipp on and no tipp gets the crowd's consensus tipp: the most tipped racer for 1st, 2nd and 3rd, and the most tipped DNF. It only applies to races that start after they turned it on, so rescoring a season doesn't fill in old races. Auto-tipps show an "auto" badge and can't win the alleinsieger bonus, or block it for anyone else.
-
 ## FIS scraping
 
 - FIS blocks scrapers that don't look like a browser, so all requests go through `fis_get` in `fis_connector.py` with browser headers.
