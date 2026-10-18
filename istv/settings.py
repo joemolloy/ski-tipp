@@ -146,6 +146,10 @@ LANGUAGE_CODE = 'de-CH'
 
 TIME_ZONE = 'Europe/Zurich'
 
+# Tipp-Assist's data: the tipbot's scraped history (fis.sqlite3) and the page's state.
+# On the server it lives outside the repo, next to the database.
+TIPP_ASSIST_DATA = os.environ.get("TIPP_ASSIST_DATA", os.path.join(BASE_DIR, "tipbot", "data"))
+
 USE_I18N = True
 
 USE_L10N = True

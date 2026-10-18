@@ -26,6 +26,7 @@ Environment variables:
 | `DJANGO_SECRET_KEY` | required |
 | `DJANGO_DEBUG` | `True` for local development only |
 | `DB_LOCATION` | SQLite file, defaults to `ski-tipp-db.sqlite3` in the repo |
+| `TIPP_ASSIST_DATA` | folder for Tipp-Assist's data (see `tipbot/README.md`), defaults to `tipbot/data` in the repo |
 | `ALLOWED_HOSTS` | JSON list, defaults to ski-tipp.org and localhost |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_FROM_EMAIL` | email via SES and SMS reminders via SNS. Without them, emails are written to `sent_emails/` |
 

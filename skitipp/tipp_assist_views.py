@@ -18,7 +18,7 @@ from tipbot import markov_tipper
 from .context_processors import can_use_tipp_assist
 from .models import RACE_TYPES, Racer, RaceEvent, Season, Tipp
 
-DATA = os.path.join(settings.BASE_DIR, "tipbot", "data")
+DATA = settings.TIPP_ASSIST_DATA
 STATE = os.path.join(DATA, "tipp_assist_state.json")
 EXTRA = os.path.join(DATA, "fis.sqlite3")
 
