@@ -123,8 +123,8 @@ def tipp_assist_page(request):
             guessed_bibs=res["guessed_bibs"], training_runs=res["training_runs"],
             contenders=[dict(c, name=label(c["racer"])) for c in res["contenders"]],
             is_speed=race.is_speed_event,
-            # races without a published start time are stored at local midnight
-            time_known=timezone.localtime(race.race_date).strftime("%H:%M") != "00:00",
+            # races without a published start time are stored at 9:00 (a real 9:00 start shows as tbc too)
+            time_known=timezone.localtime(race.race_date).strftime("%H:%M") != "09:00",
         ))
     form = NotStartingForm(initial={"racers": Racer.objects.filter(fis_id__in=state.get("not_starting", []))})
     return render(request, "tipp_assist.html", dict(cards=cards, form=form, n=n,

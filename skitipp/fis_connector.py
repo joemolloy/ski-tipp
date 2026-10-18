@@ -67,7 +67,9 @@ def extract_race_info(tree, fis_race_id, season=None):
         date_time_string = race_time_elems[0].attrib['data-iso-date']
         race_date_time = parse(date_time_string)
     else:
-        # no start time published yet; races start at 9:00 or later, so tipping stays open until then
+        # no start time published yet; races start at 9:00 or later, so tipping stays open until then.
+        # Publishing or finalizing a race fetches the real time before scoring, so this guess never
+        # lets a late tipp count, even for races outside Europe; it only drives reminders and Tipp-Assist.
         date_time_string = race_date
         race_date_time = parse(date_time_string).replace(hour=DEFAULT_START_HOUR, minute=0)
     race_short_name = create_short_name(race_name, race_kind)
