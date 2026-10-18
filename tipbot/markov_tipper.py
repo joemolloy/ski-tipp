@@ -891,9 +891,14 @@ def score(race, podium_racers, dnf_racer):
     return pts
 
 
-def tipp(model, tracker, race, boosts=None):
+def tipp(model, tracker, race, boosts=None, eligible=None):
+    """eligible: the racers the tipp form offers, if known (the app's active racers); otherwise
+    estimated from who has scored World Cup points this winter or last."""
     sim = model.odds(tracker, race, boosts)
-    sim.eligible = [tracker.eligible(s.racer, race.winter) for s in race.starters]
+    if eligible is not None:
+        sim.eligible = [s.racer in eligible for s in race.starters]
+    else:
+        sim.eligible = [tracker.eligible(s.racer, race.winter) for s in race.starters]
     (a, b, c), e_pod = sim.best_podium()
     dnf_i, e_dnf = sim.best_dnf()
     racers = [race.starters[i].racer for i in (a, b, c)]
@@ -1007,6 +1012,42 @@ def load_model(args, races):
     return RaceModel.train(races, log=lambda m: print(m, file=sys.stderr))
 
 
+def tipps_for(upcoming, db_path, extra=(), model_path=DEFAULT_MODEL, exclude=(), eligible=None, trainings=None, now=None):
+    """Tipp upcoming races, for the app's tipbot page.
+
+    upcoming: dicts with fis_id, kind, date, name, location and starters ([(racer, bib)], empty
+    when the start list isn't out). exclude: racers not starting. eligible: racers the tipp form
+    offers. trainings: fis_id -> [(date, racer, rank, gap, dnf)] training runs.
+    Returns one dict per race, and the racer names."""
+    races, names, _ = load_history(db_path, extra)
+    with open(model_path) as f:
+        model = RaceModel.from_json(json.load(f))
+    tracker = tracker_until(model, races, now or datetime.now())
+    exclude = set(exclude)
+    out = []
+    for u in upcoming:
+        if u["kind"] not in DISCIPLINES:
+            continue
+        race = Race(u["fis_id"], u["name"], u["kind"], u["date"], [])
+        race.venue = venue_key(u["location"])
+        listed = [Starter(r, b) for r, b in u.get("starters") or [] if r not in exclude]
+        race.starters = listed or guessed_start_list(model, tracker, race.disc, race.winter, names, exclude=exclude)
+        runs = (trainings or {}).get(u["fis_id"])
+        if runs:
+            attach_training({race.fis_id: race}, [(race.fis_id, d, r, rank, gap, dnf) for d, r, rank, gap, dnf in runs])
+        podium, dnf, exp, odds = tipp(model, tracker, race, eligible=eligible)
+        order = sorted(range(len(race.starters)), key=lambda i: -odds.p_podium[i])
+        out.append(dict(
+            fis_id=race.fis_id, podium=podium, dnf=dnf, expected=exp, guessed_bibs=not listed,
+            training_runs=len({d for d, *_ in runs}) if runs else 0,
+            contenders=[dict(racer=race.starters[i].racer, bib=race.starters[i].bib, mult=odds.mult[i],
+                             p_win=odds.p_rank[i][0], p_podium=odds.p_podium[i], p_dnf=odds.p_dnf[i]) for i in order[:12]],
+            bib={s.racer: s.bib for s in race.starters}, mult={s.racer: m for s, m in zip(race.starters, odds.mult)},
+            p_dnf={s.racer: p for s, p in zip(race.starters, odds.p_dnf)}, p_all_in=odds.p_all_in,
+        ))
+    return out, names
+
+
 def tracker_until(model, races, date):
     tracker = FormTracker(model.hmms)
     for race in races:
@@ -1058,11 +1099,11 @@ def read_start_list(path, names):
     return starters
 
 
-def guessed_start_list(model, tracker, disc, winter, names, size=60):
+def guessed_start_list(model, tracker, disc, winter, names, size=60, exclude=()):
     """No start list yet: take racers active in the discipline last winter or this one,
     and give bibs in order of form, roughly how the seeding goes."""
     hmm = model.hmms[disc]
-    recent = {k[0] for k, w in tracker.last_winter.items() if k[1] == disc and w >= winter - 1}
+    recent = {k[0] for k, w in tracker.last_winter.items() if k[1] == disc and w >= winter - 1} - set(exclude)
     def strength(r):
         em = hmm.emit(tracker.predict(r, disc, winter))
         return em[WIN] * 3 + em[PODIUM] + em[TOP10] / 3

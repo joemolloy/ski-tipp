@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, tipp_assist_views
 
 urlpatterns = [
     
@@ -44,6 +44,11 @@ urlpatterns = [
     path('racers/update_start_list/', views.update_wc_start_list, name='update_racers'),
 
     path('guide/', views.StaffGuideView.as_view(), name='staff_guide'),
+
+    path('tipp-assist/', tipp_assist_views.tipp_assist_page, name='tipp_assist'),
+    path('tipp-assist/not_starting/', tipp_assist_views.tipp_assist_not_starting, name='tipp_assist_not_starting'),
+    path('tipp-assist/rerun/', tipp_assist_views.tipp_assist_rerun, name='tipp_assist_rerun'),
+    path('tipp-assist/use/<int:race_id>/', tipp_assist_views.tipp_assist_use, name='tipp_assist_use'),
 
     path(
         r'racer-autocomplete/',

@@ -87,6 +87,7 @@
                 {% if user.is_staff %} <a class="dropdown-item" href="/admin">Admin</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'update_racers' %}">Update Start Lists</a> {% endif %}
                 {% if user.is_staff %} <a class="dropdown-item" href="{% url 'staff_guide' %}">Staff guide</a> {% endif %}
+                {% if tipp_assist_user %} <a class="dropdown-item" href="{% url 'tipp_assist' %}">Tipp-Assist</a> {% endif %}
                 <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
                 </div>
             </li>

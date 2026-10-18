@@ -142,6 +142,29 @@ Known gaps in the data, which the model works around:
 
 Because of these, the bot doesn't trust its per-racer numbers for bib 31+. It scales them so they win podium places at the historical rate.
 
+## Tipp-Assist
+
+The Tipp-Assist page, `/app/tipp-assist/` (user menu → Tipp-Assist), shows the bot's tipps for the next 3, 6 or 10 races: the podium and DNF pick with bibs and multipliers, expected points, the main contenders' odds, and your own current tipp.
+
+- **Use this tipp** saves the bot's tipp as yours, through the same rules as the tipp form: only before the start, and only racers the form offers.
+- **Not starting** takes racers (autocomplete) who are injured or skipping. They're left out of every prediction until you remove them.
+- **Rerun** fetches this week's training runs from FIS for upcoming speed races, then recomputes.
+- Until the start list is out, bibs are guessed from form (flagged "bibs guessed").
+
+Only members of the **Tipp-Assist** group can open it; everyone else gets a 404. The page reads the live database directly, so results imported through the app count straight away. It runs in about half a second, so there's nothing to schedule.
+
+Server setup, once:
+
+1. Deploy as usual. There's no migration.
+2. In Admin → Groups, add a group called `Tipp-Assist` and put your user in it.
+3. Copy the scraped history up. Without it, the bot still works but loses the warm-up seasons, training runs and ages:
+   ```
+   ssh -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem bitnami@63.179.212.78 'mkdir -p /opt/bitnami/projects/ski-tipp/tipbot/data'
+   scp -i ~/.ssh/LightsailDefaultKey-eu-central-1.pem tipbot/data/fis.sqlite3 bitnami@63.179.212.78:/opt/bitnami/projects/ski-tipp/tipbot/data/
+   ```
+
+The page keeps its state (the not-starting list and fetched training runs) in `tipbot/data/tipp_assist_state.json`, so the app needs write access to `tipbot/data/`. The model's weights come from `model.json` in git: retrain locally now and then, then commit and deploy.
+
 ## Use
 
 ```

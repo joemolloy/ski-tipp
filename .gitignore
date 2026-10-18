@@ -11,3 +11,6 @@ __pycache__
 !.elasticbeanstalk/*.global.yml
 static/
 .DS_Store.env
+
+# tipbot data: scraped history, weather and the tipbot page state
+tipbot/data/

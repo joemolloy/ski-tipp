@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% load tz %}
+
+{% block page_content %}
+
+<style>
+.select2-container { width: 100% !important; }
+.select2-container .select2-selection--multiple { height: auto !important; min-height: 38px; }
+.assist-card .table td, .assist-card .table th { padding: .2rem .4rem; }
+.assist-tipp li { margin-bottom: .15rem; }
+.assist-mult { font-size: .75rem; }
+</style>
+
+<div class="row align-items-center mb-2">
+    <div class="col">
+        <h3 class="mb-0">Tipp-Assist</h3>
+        <small class="text-muted">Markov form model, expected-points tipps. Odds use the latest results in the database.</small>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Number of races">
+            <a class="btn btn-outline-secondary {% if n == 3 %}active{% endif %}" href="?n=3">3 races</a>
+            <a class="btn btn-outline-secondary {% if n == 6 %}active{% endif %}" href="?n=6">6</a>
+            <a class="btn btn-outline-secondary {% if n == 10 %}active{% endif %}" href="?n=10">10</a>
+        </div>
+        <form method="post" action="{% url 'tipp_assist_rerun' %}" class="d-inline">
+            {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary" title="Fetch this week's training runs for speed races from FIS and recompute">Rerun</button>
+        </form>
+    </div>
+</div>
+
+<form method="post" action="{% url 'tipp_assist_not_starting' %}" class="mb-3">
+    {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
+    {{ form.racers }}
+    <div class="d-flex justify-content-between align-items-start mt-1">
+        <small class="text-muted mr-2">Not starting (injured or skipping): left out of every prediction until removed.</small>
+        <button type="submit" class="btn btn-sm btn-secondary">Save</button>
+    </div>
+</form>
+
+{% for card in cards %}
+<div class="card assist-card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+        <div>
+            <strong>{{ card.race.short_name }}</strong> {{ card.race.kind }}, {{ card.race.location }}
+            {% if card.race.is_classic %}<span class="badge badge-info">classic</span>{% endif %}
+            {% if card.race.points_multiplier > 1 %}<span class="badge badge-warning">x{{ card.race.points_multiplier }} points</span>{% endif %}
+        </div>
+        <div>
+            <small>{% if card.time_known %}{{ card.race.race_date|localtime|date:"D j M, H:i" }}{% else %}{{ card.race.race_date|date:"D j M" }}, time tbc{% endif %}</small>
+            {% if card.guessed_bibs %}<span class="badge badge-secondary" title="No start list yet: bibs and multipliers are guessed from form">bibs guessed</span>{% endif %}
+            {% if card.is_speed %}
+                {% if card.training_runs %}<span class="badge badge-success">{{ card.training_runs }} training run{{ card.training_runs|pluralize }}</span>
+                {% else %}<span class="badge badge-light">no training runs yet</span>{% endif %}
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-5 mb-2">
+                <ol class="assist-tipp pl-3 mb-1">
+                    {% for p in card.podium %}
+                    <li>{{ p.name }} <span class="text-muted assist-mult">bib {{ p.bib }}, x{{ p.mult }}</span></li>
+                    {% endfor %}
+                </ol>
+                <div class="mb-1">DNF: {{ card.dnf.name }} <span class="text-muted assist-mult">{% widthratio card.dnf.p 1 100 %}%</span></div>
+                <div class="mb-2">Expected points: <strong>{{ card.expected|floatformat:2 }}</strong></div>
+                {% if card.mine %}
+                <div class="small text-muted mb-2">Your tipp: {{ card.mine.place_1 }}, {{ card.mine.place_2 }}, {{ card.mine.place_3 }}{% if card.mine.dnf %}; DNF {{ card.mine.dnf }}{% endif %}
+                    ({{ card.mine.created|localtime|date:"j M H:i" }})</div>
+                {% endif %}
+                <form method="post" action="{% url 'tipp_assist_use' card.race.fis_id %}"
+                      onsubmit="return confirm('Submit this tipp as your tipp for {{ card.race.short_name|escapejs }}?');">
+                    {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
+                    {% for p in card.podium %}<input type="hidden" name="place_{{ forloop.counter }}" value="{{ p.fis_id }}">{% endfor %}
+                    <input type="hidden" name="dnf" value="{{ card.dnf.fis_id }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Use this tipp</button>
+                </form>
+            </div>
+            <div class="col-md-7 table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead><tr><th>Bib</th><th>Racer</th><th class="text-right">x</th><th class="text-right">Win</th><th class="text-right">Podium</th><th class="text-right">DNF</th></tr></thead>
+                    <tbody>
+                    {% for c in card.contenders %}
+                    <tr>
+                        <td>{{ c.bib }}</td><td>{{ c.name }}</td><td class="text-right">{{ c.mult }}</td>
+                        <td class="text-right">{% widthratio c.p_win 1 100 %}%</td>
+                        <td class="text-right">{% widthratio c.p_podium 1 100 %}%</td>
+                        <td class="text-right">{% widthratio c.p_dnf 1 100 %}%</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% empty %}
+<p>No upcoming races in the database.</p>
+{% endfor %}
+
+{% endblock %}
+
+{% block javascript %}
+    {{ form.media }}
+{% endblock %}
