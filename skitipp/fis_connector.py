@@ -176,6 +176,11 @@ def update_ws_start_list():
 
     return dict(created=created_count, updated=updated_count, total=len(racer_links), errors=errors, rate_limited=rate_limited)
 
+def clean_racer_name(text):
+    # The name cell also holds the ski brand on later lines; keep only the name
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return ' '.join(lines[0].split()) if lines else ''
+
 def process_racer_row(row_element, processing_dnf=False):
     cols = row_element.xpath('./div')
     # Skip rows with insufficient columns
@@ -185,7 +190,7 @@ def process_racer_row(row_element, processing_dnf=False):
         rank = None
     start_number = int(cols[1].xpath('string(.)').strip())
     fis_id = int(cols[2].xpath('string(.)').strip())
-    name = cols[3].xpath('string(.)').strip()
+    name = clean_racer_name(cols[3].xpath('string(.)'))
 
     racer_details = dict(
         rank=rank, start_number=start_number,
