@@ -278,6 +278,32 @@ def get_dnf_racers(tree, race_event):
     #print("Number of dnf racers: ", len(dnf_athletes))
     return dnf_athletes
 
+def get_start_list(tree, race_event):
+    """Store the start list FIS shows before the race: bibs, no ranks."""
+    athletes = []
+    for row_element in get_results_html_table(tree).xpath('.//div[@class="g-row justify-sb"]'):
+        try:
+            racer_details = process_racer_row(row_element, processing_dnf=True)
+        except ValueError:
+            continue  # a row without a bib or FIS code
+
+        racer, created = Racer.objects.get_or_create(
+            fis_id=racer_details['fis_id'],
+            defaults=dict(name=racer_details['name']))
+
+        RaceCompetitor.objects.update_or_create(
+            race_event_id=race_event.fis_id,
+            racer_id=racer.fis_id,
+            defaults={'start_number': racer_details['start_number']}
+        )
+        athletes.append({"start_number": racer_details['start_number'], "racer": racer})
+
+    return athletes
+
+def start_list_published(tree):
+    table_header = tree.xpath('string(.//div[@id="ajx_results"]//h3)')
+    return table_header.strip().upper() == 'START LIST'
+
 def results_published(tree):
     table_header = tree.xpath('.//div[@id="ajx_results"]//h3')[0].text
     return (
@@ -303,6 +329,9 @@ def get_new_race_results(fis_race_id, season):
         dnfs = get_dnf_racers(tree, race_event)
         print("Number of completed racers: ", len(finishers))
         print("Number of dnf racers: ", len(dnfs))
+    elif start_list_published(tree):
+        starters = get_start_list(tree, race_event)
+        print("Number of starters: ", len(starters))
     else:
         print("Official results not yet published")
 

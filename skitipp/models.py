@@ -99,6 +99,11 @@ class RaceEvent(models.Model):
         return reverse("race_detail", kwargs={"pk": self.pk})
 
     @property
+    def results_published(self):
+        # before the race the start list is stored too, with bibs but no ranks
+        return self.start_list.filter(rank__isnull=False).exists()
+
+    @property
     def podium(self):
         podium = self.start_list.filter(is_dnf=False, rank__lte=3).order_by("rank")
         return podium

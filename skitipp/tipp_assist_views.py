@@ -146,32 +146,39 @@ def tipp_assist_not_starting(request):
 
 @tipp_assist_only
 def tipp_assist_rerun(request):
-    """Fetch the training runs of the coming speed races from FIS, then show the page again."""
+    """Refresh the coming week's races from FIS (start time and start list), fetch the training runs
+    of its speed races, then show the page again."""
     if request.method != "POST":
         return back(request)
     from tipbot import fetch_extras
-    from skitipp.fis_connector import FISRateLimited
+    from skitipp import fis_connector
     fetch_extras.PAUSE = 1
     state = load_state()
     state.setdefault("training", {}); state.setdefault("training_fetched", {})
     soon = timezone.now() + timezone.timedelta(days=8)
-    fetched = []
+    listed, fetched = [], []
     for race in upcoming_races(20):
-        if not race.is_speed_event or race.race_date > soon:
+        if race.race_date > soon:
             continue
         try:
-            _, runs = fetch_extras.race_extras(race.fis_id)
-        except FISRateLimited:
+            race = fis_connector.get_race_results(race.fis_id)
+            starters = race.start_list.count()
+            listed.append(f"{race} ({starters} starters)" if starters else f"{race} (not out yet)")
+            if race.is_speed_event:
+                _, runs = fetch_extras.race_extras(race.fis_id)
+                state["training"][str(race.fis_id)] = [(d, r["racer"], r["rank"], r["gap"], r["dnf"]) for d, r in runs]
+                state["training_fetched"][str(race.fis_id)] = timezone.now().isoformat(timespec="minutes")
+                fetched.append(f"{race} ({len({d for d, _ in runs})} runs)")
+        except fis_connector.FISRateLimited:
             messages.warning(request, "FIS is rate limiting, try again in a minute.")
             break
         except Exception as e:
-            messages.warning(request, f"Couldn't load training runs for {race}: {e}")
+            messages.warning(request, f"Couldn't load {race} from FIS: {e}")
             continue
-        state["training"][str(race.fis_id)] = [(d, r["racer"], r["rank"], r["gap"], r["dnf"]) for d, r in runs]
-        state["training_fetched"][str(race.fis_id)] = timezone.now().isoformat(timespec="minutes")
-        fetched.append(f"{race} ({len({d for d, _ in runs})} runs)")
     save_state(state)
-    messages.info(request, "Training runs: " + (", ".join(fetched) if fetched else "no speed races in the next week"))
+    messages.info(request, "Start lists: " + (", ".join(listed) if listed else "no races in the next week"))
+    if fetched:
+        messages.info(request, "Training runs: " + ", ".join(fetched))
     return back(request)
 
 

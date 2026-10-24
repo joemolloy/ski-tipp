@@ -488,7 +488,7 @@ def rescore_all_races(request, season_id):
                 rate_limited = True
                 messages.warning(request, '%s - races from %s on were scored from stored results' % (e, race_event))
 
-        if not race_event.start_list.exists():
+        if not race_event.results_published:
             #race results are not published
             messages.error(request, "Race Results are not available for {}".format(race_event))
         else:
@@ -504,7 +504,7 @@ def finalize_race(request, race_id):
     #update race first
     race_event = fis_connector.get_race_results(race_id)
 
-    if not race_event.start_list.exists():
+    if not race_event.results_published:
         #race results are not published
         messages.error(request, "Race Results are not available to finalize race")
         return HttpResponseRedirect(race_event.get_absolute_url())

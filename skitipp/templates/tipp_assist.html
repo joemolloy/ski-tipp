@@ -26,7 +26,7 @@
         </div>
         <form method="post" action="{% url 'tipp_assist_rerun' %}" class="d-inline">
             {% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
-            <button type="submit" class="btn btn-sm btn-outline-primary" title="Fetch this week's training runs for speed races from FIS and recompute">Rerun</button>
+            <button type="submit" class="btn btn-sm btn-outline-primary" title="Fetch this week's start lists, and training runs for speed races, from FIS and recompute">Rerun</button>
         </form>
     </div>
 </div>

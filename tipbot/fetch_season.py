@@ -62,7 +62,7 @@ def main(season_name, season_code, category):
 
     for race_id in race_ids:
         existing = RaceEvent.objects.filter(pk=race_id, finished=True).first()
-        if existing and existing.start_list.exists():
+        if existing and existing.results_published:
             continue
         try:
             race_event, _ = fis_connector.get_new_race_results(race_id, season)
