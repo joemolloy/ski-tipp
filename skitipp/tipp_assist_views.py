@@ -197,6 +197,6 @@ def tipp_assist_use(request, race_id):
         messages.warning(request, "That DNF racer can't be picked on the tipp form.")
         return back(request)
     Tipp.objects.create(tipper=request.user, race_event=race, place_1_id=picks[0], place_2_id=picks[1],
-                        place_3_id=picks[2], dnf_id=dnf if race.dnf_eligible else None, comment="tipp-assist")
+                        place_3_id=picks[2], dnf_id=dnf if race.dnf_eligible else None)
     messages.success(request, f"Tipp saved for {race}.")
     return back(request)
